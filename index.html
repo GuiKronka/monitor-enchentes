@@ -57,6 +57,10 @@ body{
     <h2>⚠️ Risco</h2>
     <div class="valor" id="risco">--</div>
 </div>
+    <div class="card">
+    <h2>🔌 Estado do Relé</h2>
+    <div class="valor" id="estadoRele">--</div>
+</div>
 <div class="card">
 
 <h2>🔌 Controle do Relé</h2>
@@ -138,6 +142,16 @@ onValue(dadosRef, (snapshot) => {
 
   document.getElementById("risco").innerHTML =
       dados.risco;
+    const estado = document.getElementById("estadoRele");
+
+estado.innerHTML = dados.estadoRele;
+
+if(dados.estadoRele == "Ligado"){
+    estado.style.color = "green";
+}
+else{
+    estado.style.color = "red";
+}
 });
 
 </script>
