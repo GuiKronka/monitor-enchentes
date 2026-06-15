@@ -74,11 +74,15 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+    console.log("Firebase iniciou");
 const db = getDatabase(app);
+    console.log("Banco conectado");
 
 const dadosRef = ref(db, "dados");
 
 onValue(dadosRef, (snapshot) => {
+  console.log("Recebi dados:");
+  console.log(snapshot.val());
 
   const dados = snapshot.val();
 
