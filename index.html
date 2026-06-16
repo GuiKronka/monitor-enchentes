@@ -124,9 +124,15 @@ const app = initializeApp(firebaseConfig);
     console.log("Firebase iniciou");
 const db = getDatabase(app);
     console.log("Banco conectado");
-    window.ligarRele = function(){
-
    window.ligarRele = function(){
+
+    set(
+      ref(db,"controle/rele"),
+      true
+    );
+}
+
+window.ligarRele = function(){
 
     set(
       ref(db,"controle/rele"),
@@ -142,16 +148,7 @@ window.desligarRele = function(){
     );
 }
 
-window.desligarRele = function(){
-
-    set(
-      ref(db,"controle"),
-      {
-        rele:false
-      }
-    );
-}
-    window.autoOn = function(){
+window.autoOn = function(){
 
     set(
       ref(db,"controle/automatico"),
