@@ -53,14 +53,37 @@ body{
     <div class="valor" id="ire">--</div>
 </div>
 
-<div class="card">
+ <div class="card">
     <h2>⚠️ Risco</h2>
     <div class="valor" id="risco">--</div>
 </div>
-    <div class="card">
-    <h2>🔌 Estado do Relé</h2>
-    <div class="valor" id="estadoRele">--</div>
+
+<!-- COLE AQUI -->
+
+<div class="card">
+
+<h2>🤖 Modo Automático</h2>
+
+<div class="valor" id="modoAuto">
+--
 </div>
+
+<button onclick="autoOn()">
+AUTO ON
+</button>
+
+<button onclick="autoOff()">
+AUTO OFF
+</button>
+
+</div>
+<h2>🔌 Estado do Relé</h2>
+
+<div class="valor" id="estadoRele">
+--
+</div>
+<!-- DEPOIS CONTINUA -->
+
 <div class="card">
 
 <h2>🔌 Controle do Relé</h2>
@@ -101,11 +124,19 @@ const db = getDatabase(app);
     console.log("Banco conectado");
     window.ligarRele = function(){
 
+   window.ligarRele = function(){
+
     set(
-      ref(db,"controle"),
-      {
-        rele:true
-      }
+      ref(db,"controle/rele"),
+      true
+    );
+}
+
+window.desligarRele = function(){
+
+    set(
+      ref(db,"controle/rele"),
+      false
     );
 }
 
@@ -116,6 +147,21 @@ window.desligarRele = function(){
       {
         rele:false
       }
+    );
+}
+    window.autoOn = function(){
+
+    set(
+      ref(db,"controle/automatico"),
+      true
+    );
+}
+
+window.autoOff = function(){
+
+    set(
+      ref(db,"controle/automatico"),
+      false
     );
 }
 const dadosRef = ref(db, "dados");
@@ -152,6 +198,17 @@ if(dados.estadoRele == "Ligado"){
 else{
     estado.style.color = "red";
 }
+});
+        const controleRef = ref(db,"controle");
+
+onValue(controleRef,(snapshot)=>{
+
+    const controle = snapshot.val();
+
+    if(!controle) return;
+
+    document.getElementById("modoAuto").innerHTML =
+    controle.automatico ? "ON" : "OFF";
 });
 
 </script>
