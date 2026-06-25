@@ -1,44 +1,596 @@
 <!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Monitor Inteligente de Enchentes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial;background:#07111f;color:#fff}
-header{background:linear-gradient(90deg,#0f4c81,#0ea5e9);padding:24px}
-header h1{margin:0}.sub{opacity:.9}
-.container{max-width:1300px;margin:auto;padding:20px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
-.card{background:#13263d;border-radius:18px;padding:20px;box-shadow:0 8px 18px rgba(0,0,0,.35);transition:.25s}
-.card:hover{transform:translateY(-4px)}
-.value{font-size:2rem;font-weight:bold}
-#riskCard{text-align:center;padding:30px;font-size:2rem;font-weight:bold}
-.buttons button{padding:12px 18px;margin:6px;border:0;border-radius:10px;font-weight:bold;cursor:pointer}
-.green{background:#16a34a;color:#fff}.red{background:#dc2626;color:#fff}.blue{background:#2563eb;color:#fff}
-footer{text-align:center;color:#9fb3c8;padding:25px}
-</style></head>
-<body>
-<header><h1>🌊 Monitor Inteligente de Enchentes</h1><div class=sub>ESP32 • Firebase • Open‑Meteo</div></header>
-<div class=container>
-<div class=grid>
-<div class=card><h3>🌡 Temperatura</h3><div id=temp class=value>--</div></div>
-<div class=card><h3>💧 Umidade</h3><div id=hum class=value>--</div></div>
-<div class=card><h3>🌧 Chuva Prevista</h3><div id=chuva class=value>--</div></div>
-<div class=card><h3>📈 IRE</h3><div id=ire class=value>--</div></div>
-</div>
-<div class="card" id="riskCard"><div>⚠️ RISCO</div><div id=risco>--</div></div>
-<div class=grid>
-<div class=card><h3>🤖 Modo Automático</h3><div id=modoAuto class=value>--</div>
-<div class=buttons><button class=blue onclick=autoOn()>AUTO ON</button><button class=red onclick=autoOff()>AUTO OFF</button></div></div>
-<div class=card><h3>🔌 Relé</h3><div id=estadoRele class=value>--</div>
-<div class=buttons><button class=green onclick=ligarRele()>Ligar</button><button class=red onclick=desligarRele()>Desligar</button></div></div>
-</div>
-</div>
-<footer>Atualização em tempo real</footer>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {getDatabase,ref,onValue,set} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+/* ── Reset & Tokens ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-const firebaseConfig={
-apiKey: "AIzaSyAC5BprHfoHEoe1AfLYv4h98eod01sf52U",
+:root{
+  --bg:       #04101E;
+  --surface:  #0B1F35;
+  --surface2: #0F2744;
+  --border:   rgba(14,165,233,.18);
+  --txt:      #E2EEF9;
+  --txt2:     #7BA8C8;
+  --txt3:     #4A7296;
+  --accent:   #0EA5E9;
+  --cyan:     #22D3EE;
+  --green:    #10B981;
+  --amber:    #F59E0B;
+  --red:      #EF4444;
+  --red2:     #FF6B6B;
+  --radius:   14px;
+  --card-shadow: 0 4px 24px rgba(0,0,0,.4);
+}
+[data-theme="light"]{
+  --bg:       #EFF6FF;
+  --surface:  #FFFFFF;
+  --surface2: #F0F7FF;
+  --border:   rgba(14,165,233,.22);
+  --txt:      #0F2744;
+  --txt2:     #2C5F8A;
+  --txt3:     #6B9AB8;
+  --card-shadow: 0 2px 16px rgba(14,165,233,.12);
+}
+
+/* ── Base ── */
+body{
+  font-family:'Inter',sans-serif;
+  background:var(--bg);
+  color:var(--txt);
+  min-height:100vh;
+  transition:background .35s,color .35s;
+}
+
+/* ── Header ── */
+.header{
+  background:linear-gradient(135deg,#0F2744 0%,#0B3A6E 60%,#0E4D8C 100%);
+  border-bottom:1px solid var(--border);
+  padding:0 24px;
+  position:sticky;top:0;z-index:100;
+  box-shadow:0 2px 20px rgba(0,0,0,.5);
+}
+.header-inner{
+  max-width:1400px;margin:auto;
+  display:flex;align-items:center;gap:16px;
+  height:64px;
+}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-icon{
+  width:38px;height:38px;border-radius:10px;
+  background:linear-gradient(135deg,#0EA5E9,#06B6D4);
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;flex-shrink:0;
+  box-shadow:0 0 16px rgba(14,165,233,.4);
+}
+.logo-text{font-family:'Barlow Condensed',sans-serif;font-size:1.15rem;font-weight:700;letter-spacing:.04em;color:#fff}
+.logo-sub{font-size:.7rem;font-weight:400;color:rgba(255,255,255,.6);display:block;letter-spacing:.08em;text-transform:uppercase}
+.header-spacer{flex:1}
+
+/* Status pill */
+.status-pill{
+  display:flex;align-items:center;gap:7px;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:20px;padding:6px 14px;
+  font-size:.78rem;color:rgba(255,255,255,.8);cursor:default;
+  white-space:nowrap;
+}
+.pulse-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--green);flex-shrink:0;
+  animation:pulse-ring 2s ease-in-out infinite;
+}
+@keyframes pulse-ring{
+  0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.6)}
+  50%{box-shadow:0 0 0 5px rgba(16,185,129,0)}
+}
+.pulse-dot.offline{background:var(--red);animation:none}
+.pulse-dot.warn{background:var(--amber)}
+
+/* Theme toggle */
+.theme-toggle{
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:8px;width:36px;height:36px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:17px;transition:.2s;
+  color:#fff;flex-shrink:0;
+}
+.theme-toggle:hover{background:rgba(255,255,255,.16)}
+
+/* Last update */
+.last-update{
+  font-size:.72rem;color:var(--txt3);
+  display:flex;align-items:center;gap:5px;
+  white-space:nowrap;
+}
+
+/* ── Layout ── */
+.container{max-width:1400px;margin:auto;padding:24px 20px}
+
+/* ── Risk Gauge — the signature element ── */
+.risk-section{
+  display:grid;
+  grid-template-columns:280px 1fr;
+  gap:20px;margin-bottom:20px;
+}
+@media(max-width:900px){.risk-section{grid-template-columns:1fr}}
+
+.gauge-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:28px 20px 20px;
+  box-shadow:var(--card-shadow);
+  display:flex;flex-direction:column;align-items:center;
+  position:relative;overflow:hidden;
+}
+.gauge-card::before{
+  content:'';
+  position:absolute;top:-40px;left:50%;transform:translateX(-50%);
+  width:200px;height:200px;border-radius:50%;
+  background:radial-gradient(circle,rgba(14,165,233,.08) 0%,transparent 70%);
+  pointer-events:none;
+}
+
+.gauge-label{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--txt3);margin-bottom:14px;
+}
+.gauge-wrap{position:relative;width:200px;height:110px;margin-bottom:8px}
+.gauge-svg{width:100%;height:100%}
+.gauge-value-box{
+  position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  text-align:center;
+}
+.gauge-number{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:2.6rem;font-weight:700;line-height:1;
+  color:var(--txt);transition:color .5s;
+}
+.gauge-unit{font-size:.8rem;color:var(--txt3);display:block;margin-top:2px}
+
+.risk-badge{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:1.05rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  padding:8px 22px;border-radius:8px;margin-top:8px;
+  transition:all .5s;
+}
+.risk-badge.baixo{background:rgba(16,185,129,.15);color:#10B981;border:1px solid rgba(16,185,129,.3)}
+.risk-badge.moderado{background:rgba(245,158,11,.15);color:#F59E0B;border:1px solid rgba(245,158,11,.3)}
+.risk-badge.alto{background:rgba(239,68,68,.15);color:#EF4444;border:1px solid rgba(239,68,68,.3)}
+.risk-badge.critico{background:rgba(239,68,68,.25);color:#FF6B6B;border:1px solid rgba(239,68,68,.5);animation:critical-pulse .8s ease-in-out infinite alternate}
+@keyframes critical-pulse{
+  from{box-shadow:0 0 0 0 rgba(239,68,68,.4)}
+  to{box-shadow:0 0 12px 4px rgba(239,68,68,.3)}
+}
+
+/* Alert banner */
+.alert-banner{
+  display:none;
+  background:linear-gradient(90deg,rgba(239,68,68,.15),rgba(239,68,68,.05));
+  border:1px solid rgba(239,68,68,.4);
+  border-radius:10px;padding:12px 18px;
+  margin-top:12px;width:100%;
+  font-size:.82rem;color:#EF4444;
+  align-items:center;gap:10px;
+}
+.alert-banner.active{display:flex;animation:slide-in .4s ease}
+@keyframes slide-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.alert-icon{font-size:1.1rem;animation:flash 1s ease-in-out infinite alternate}
+@keyframes flash{from{opacity:1}to{opacity:.3}}
+
+/* ── Metric grid ── */
+.metrics-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;flex:1;
+}
+.metric-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px 18px;
+  box-shadow:var(--card-shadow);
+  transition:.25s;
+  position:relative;overflow:hidden;
+}
+.metric-card:hover{transform:translateY(-2px);border-color:rgba(14,165,233,.35)}
+.metric-card::after{
+  content:'';position:absolute;top:0;left:0;
+  width:3px;height:100%;border-radius:3px 0 0 3px;
+  background:var(--accent);
+  opacity:.6;
+}
+.metric-card.green::after{background:var(--green)}
+.metric-card.amber::after{background:var(--amber)}
+.metric-card.red::after{background:var(--red)}
+.metric-card.cyan::after{background:var(--cyan)}
+
+.metric-label{
+  font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--txt3);margin-bottom:6px;
+  display:flex;align-items:center;gap:6px;
+}
+.metric-icon{font-size:.95rem}
+.metric-val{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:2rem;font-weight:700;line-height:1;
+  color:var(--txt);transition:color .4s;
+}
+.metric-unit{font-size:.78rem;color:var(--txt3);margin-left:3px;font-family:'Inter',sans-serif;font-weight:400}
+.metric-sub{font-size:.72rem;color:var(--txt2);margin-top:4px}
+
+/* Progress bar */
+.progress-wrap{margin-top:8px}
+.progress-track{
+  height:4px;border-radius:4px;
+  background:rgba(255,255,255,.06);
+  overflow:hidden;
+}
+.progress-fill{
+  height:100%;border-radius:4px;
+  background:linear-gradient(90deg,var(--accent),var(--cyan));
+  transition:width .8s cubic-bezier(.4,0,.2,1);
+}
+.progress-fill.green{background:linear-gradient(90deg,#059669,#10B981)}
+.progress-fill.amber{background:linear-gradient(90deg,#D97706,#F59E0B)}
+.progress-fill.red{background:linear-gradient(90deg,#B91C1C,#EF4444)}
+
+/* ── Section cards ── */
+.section-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;margin-top:20px;
+}
+@media(max-width:900px){.section-grid{grid-template-columns:1fr}}
+
+.section-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px;
+  box-shadow:var(--card-shadow);
+}
+.section-title{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--txt3);margin-bottom:16px;
+  display:flex;align-items:center;gap:8px;
+}
+.section-title::before{
+  content:'';width:4px;height:14px;border-radius:2px;
+  background:linear-gradient(180deg,var(--accent),var(--cyan));
+  flex-shrink:0;
+}
+
+/* ── Controls ── */
+.controls-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+.ctrl-group{flex:1;min-width:140px}
+.ctrl-label{
+  font-size:.72rem;letter-spacing:.06em;color:var(--txt3);
+  text-transform:uppercase;margin-bottom:6px;
+}
+.ctrl-status{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:1.3rem;font-weight:700;
+  color:var(--txt);margin-bottom:8px;
+}
+.btn-row{display:flex;gap:8px}
+.btn{
+  flex:1;padding:9px 4px;border:none;border-radius:8px;
+  font-family:'Inter',sans-serif;font-size:.78rem;font-weight:600;
+  cursor:pointer;transition:.18s;letter-spacing:.04em;
+}
+.btn:active{transform:scale(.97)}
+.btn-on{background:linear-gradient(135deg,#059669,#10B981);color:#fff}
+.btn-on:hover{filter:brightness(1.1)}
+.btn-off{background:linear-gradient(135deg,#B91C1C,#EF4444);color:#fff}
+.btn-off:hover{filter:brightness(1.1)}
+.btn-blue{background:linear-gradient(135deg,#1D4ED8,#3B82F6);color:#fff}
+.btn-blue:hover{filter:brightness(1.1)}
+.btn-ghost{
+  background:rgba(255,255,255,.06);
+  border:1px solid var(--border);
+  color:var(--txt2);
+}
+.btn-ghost:hover{background:rgba(255,255,255,.1)}
+
+/* ── Chart canvas ── */
+.chart-wrap{position:relative;height:200px}
+
+/* ── Map ── */
+#map{height:280px;border-radius:10px;overflow:hidden}
+.leaflet-tile-pane{filter:hue-rotate(200deg) saturate(.6) brightness(.55)}
+[data-theme="light"] .leaflet-tile-pane{filter:none}
+.leaflet-container{background:#07111f}
+
+/* ── Weather row ── */
+.weather-row{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(100px,1fr));
+  gap:10px;
+}
+.weather-item{
+  text-align:center;
+  padding:10px 6px;
+  background:var(--surface2);
+  border-radius:10px;
+  border:1px solid var(--border);
+  transition:.2s;
+}
+.weather-item:hover{border-color:rgba(14,165,233,.4)}
+.weather-emoji{font-size:1.5rem;display:block;margin-bottom:4px}
+.weather-val{font-family:'Barlow Condensed',sans-serif;font-size:1.05rem;font-weight:700;color:var(--txt)}
+.weather-key{font-size:.67rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em}
+
+/* ── Full-width map+chart row ── */
+.full-row{
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  gap:20px;margin-top:20px;
+}
+@media(max-width:900px){.full-row{grid-template-columns:1fr}}
+
+/* ── Footer ── */
+footer{
+  text-align:center;padding:28px 20px;
+  color:var(--txt3);font-size:.75rem;
+  border-top:1px solid var(--border);
+  margin-top:32px;
+}
+footer a{color:var(--txt2);text-decoration:none}
+
+/* ── Skeleton / shimmer ── */
+.shimmer{
+  background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.09) 50%,rgba(255,255,255,.04) 75%);
+  background-size:200% 100%;
+  animation:shimmer 1.5s infinite;
+  border-radius:6px;color:transparent!important;
+}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ── Fade-in anim ── */
+.fade-in{animation:fadeIn .5s ease both}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Responsive tweaks ── */
+@media(max-width:600px){
+  .header-inner{gap:8px}
+  .status-pill span:not(.pulse-dot){display:none}
+  .last-update{display:none}
+  .metrics-grid{grid-template-columns:1fr 1fr}
+  .metric-val{font-size:1.6rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════ HEADER ══════════ -->
+<header class="header">
+  <div class="header-inner">
+    <a class="logo" href="#">
+      <div class="logo-icon">🌊</div>
+      <div>
+        <span class="logo-text">Monitor de Enchentes</span>
+        <span class="logo-sub">Defesa Civil • São Paulo</span>
+      </div>
+    </a>
+    <div class="header-spacer"></div>
+    <div class="last-update" id="lastUpdateWrap">
+      🕐 <span id="lastUpdateTime">--:--:--</span>
+    </div>
+    <div class="status-pill" id="statusPill">
+      <span class="pulse-dot" id="statusDot"></span>
+      <span id="statusLabel">Conectando...</span>
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="Alternar tema" aria-label="Alternar modo escuro/claro">🌙</button>
+  </div>
+</header>
+
+<!-- ══════════ MAIN ══════════ -->
+<main class="container">
+
+  <!-- Risk + Metrics row -->
+  <div class="risk-section fade-in">
+
+    <!-- Gauge -->
+    <div class="gauge-card">
+      <div class="gauge-label">Índice de Risco de Enchente</div>
+
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 200 110" aria-hidden="true">
+          <defs>
+            <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#10B981"/>
+              <stop offset="40%" stop-color="#F59E0B"/>
+              <stop offset="80%" stop-color="#EF4444"/>
+              <stop offset="100%" stop-color="#FF2D55"/>
+            </linearGradient>
+          </defs>
+          <!-- Track -->
+          <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="14" stroke-linecap="round"/>
+          <!-- Colored arc -->
+          <path id="gaugeArc" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#arcGrad)" stroke-width="14" stroke-linecap="round"
+            stroke-dasharray="251" stroke-dashoffset="251" style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)"/>
+          <!-- Needle -->
+          <g id="gaugeNeedle" transform="rotate(-90 100 100)" style="transition:transform 1.2s cubic-bezier(.4,0,.2,1)">
+            <line x1="100" y1="100" x2="100" y2="30" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".9"/>
+            <circle cx="100" cy="100" r="5" fill="#fff"/>
+          </g>
+          <!-- Zone ticks -->
+          <text x="14" y="108" font-size="9" fill="rgba(255,255,255,.3)" font-family="Inter">0</text>
+          <text x="87" y="18" font-size="9" fill="rgba(255,255,255,.3)" font-family="Inter" text-anchor="middle">50</text>
+          <text x="183" y="108" font-size="9" fill="rgba(255,255,255,.3)" font-family="Inter" text-anchor="end">100</text>
+        </svg>
+        <div class="gauge-value-box">
+          <span class="gauge-number" id="ireDisplay">--</span>
+          <span class="gauge-unit">IRE</span>
+        </div>
+      </div>
+
+      <div class="risk-badge baixo" id="riskBadge">--</div>
+
+      <div class="alert-banner" id="alertBanner">
+        <span class="alert-icon">🚨</span>
+        <span id="alertMsg">Risco elevado detectado. Evacue áreas de várzea.</span>
+      </div>
+    </div>
+
+    <!-- Metric cards -->
+    <div class="metrics-grid">
+
+      <div class="metric-card green fade-in">
+        <div class="metric-label"><span class="metric-icon">🌡️</span> Temperatura</div>
+        <div>
+          <span class="metric-val" id="tempDisplay">--</span>
+          <span class="metric-unit">°C</span>
+        </div>
+        <div class="metric-sub" id="tempSub">Aguardando sensor…</div>
+        <div class="progress-wrap">
+          <div class="progress-track"><div class="progress-fill green" id="tempBar" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="metric-card fade-in" style="animation-delay:.05s">
+        <div class="metric-label"><span class="metric-icon">💧</span> Umidade</div>
+        <div>
+          <span class="metric-val" id="humDisplay">--</span>
+          <span class="metric-unit">%</span>
+        </div>
+        <div class="metric-sub" id="humSub">Aguardando sensor…</div>
+        <div class="progress-wrap">
+          <div class="progress-track"><div class="progress-fill" id="humBar" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="metric-card amber fade-in" style="animation-delay:.1s">
+        <div class="metric-label"><span class="metric-icon">🌧️</span> Chuva Prevista</div>
+        <div>
+          <span class="metric-val" id="chuvaDisplay">--</span>
+          <span class="metric-unit">mm</span>
+        </div>
+        <div class="metric-sub" id="chuvaSub">Open-Meteo · próx. 24h</div>
+        <div class="progress-wrap">
+          <div class="progress-track"><div class="progress-fill amber" id="chuvaBar" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="metric-card cyan fade-in" style="animation-delay:.15s">
+        <div class="metric-label"><span class="metric-icon">🌀</span> Vento</div>
+        <div>
+          <span class="metric-val" id="ventoDisplay">--</span>
+          <span class="metric-unit">km/h</span>
+        </div>
+        <div class="metric-sub" id="ventoSub">Open-Meteo</div>
+        <div class="progress-wrap">
+          <div class="progress-track"><div class="progress-fill" id="ventoBar" style="width:0%"></div></div>
+        </div>
+      </div>
+
+    </div><!-- /metrics-grid -->
+  </div><!-- /risk-section -->
+
+  <!-- Controls + Weather row -->
+  <div class="section-grid">
+
+    <!-- Controls -->
+    <div class="section-card fade-in" style="animation-delay:.2s">
+      <div class="section-title">Controles do Sistema</div>
+
+      <div class="controls-row">
+        <div class="ctrl-group">
+          <div class="ctrl-label">🤖 Modo Automático</div>
+          <div class="ctrl-status" id="modoAutoDisplay">--</div>
+          <div class="btn-row">
+            <button class="btn btn-on" onclick="autoOn()">AUTO ON</button>
+            <button class="btn btn-off" onclick="autoOff()">AUTO OFF</button>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <div class="ctrl-label">🔌 Relé da Bomba</div>
+          <div class="ctrl-status" id="releDisplay">--</div>
+          <div class="btn-row">
+            <button class="btn btn-blue" onclick="ligarRele()">⚡ Ligar</button>
+            <button class="btn btn-ghost" onclick="desligarRele()">Desligar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weather -->
+    <div class="section-card fade-in" style="animation-delay:.25s">
+      <div class="section-title">Clima em Tempo Real · Open-Meteo</div>
+      <div class="weather-row" id="weatherRow">
+        <div class="weather-item shimmer"><span class="weather-emoji"> </span><span class="weather-val">--</span><span class="weather-key">Cond.</span></div>
+        <div class="weather-item shimmer"><span class="weather-emoji"> </span><span class="weather-val">--</span><span class="weather-key">Pressão</span></div>
+        <div class="weather-item shimmer"><span class="weather-emoji"> </span><span class="weather-val">--</span><span class="weather-key">UV</span></div>
+        <div class="weather-item shimmer"><span class="weather-emoji"> </span><span class="weather-val">--</span><span class="weather-key">Nuvens</span></div>
+      </div>
+    </div>
+
+  </div><!-- /section-grid -->
+
+  <!-- Map + History chart -->
+  <div class="full-row">
+
+    <!-- Map -->
+    <div class="section-card fade-in" style="animation-delay:.3s">
+      <div class="section-title">🗺️ Localização do Sensor</div>
+      <div id="map"></div>
+    </div>
+
+    <!-- History chart -->
+    <div class="section-card fade-in" style="animation-delay:.35s">
+      <div class="section-title">📊 Histórico das Últimas 12h</div>
+      <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="flex:none;padding:5px 12px;font-size:.72rem" onclick="setChartMode('ire')" id="btnIRE">IRE</button>
+        <button class="btn btn-ghost" style="flex:none;padding:5px 12px;font-size:.72rem" onclick="setChartMode('temp')" id="btnTemp">Temperatura</button>
+        <button class="btn btn-ghost" style="flex:none;padding:5px 12px;font-size:.72rem" onclick="setChartMode('hum')" id="btnHum">Umidade</button>
+        <button class="btn btn-ghost" style="flex:none;padding:5px 12px;font-size:.72rem" onclick="setChartMode('chuva')" id="btnChuva">Chuva</button>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="histChart" role="img" aria-label="Gráfico histórico de métricas do sensor nas últimas 12 horas">Histórico das últimas 12 horas.</canvas>
+      </div>
+      <div style="display:flex;justify-content:center;margin-top:8px">
+        <span style="font-size:.7rem;color:var(--txt3)" id="chartLegendLabel">IRE — Índice de Risco de Enchente</span>
+      </div>
+    </div>
+
+  </div><!-- /full-row -->
+
+</main>
+
+<footer>
+  <div>Monitor Inteligente de Enchentes — ESP32 + Firebase + Open-Meteo</div>
+  <div style="margin-top:4px;opacity:.6">Dados atualizados em tempo real · v3.0</div>
+</footer>
+
+<!-- ══════════ SCRIPTS ══════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<script type="module">
+// ════════════════════════════════════════════════
+//  CONFIGURAÇÃO — edite estas constantes
+// ════════════════════════════════════════════════
+
+// Firebase
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  // ── COLE AQUI SUA CONFIG DO FIREBASE ──
+ apiKey: "AIzaSyAC5BprHfoHEoe1AfLYv4h98eod01sf52U",
 authDomain:"monitor-enchentes.firebaseapp.com",
 databaseURL:"https://monitor-enchentes-default-rtdb.firebaseio.com",
 projectId:"monitor-enchentes",
@@ -47,28 +599,339 @@ messagingSenderId:"579140784094",
 appId: "1:579140784094:web:8369295db1d090d7bfd74f"
 };
 
-const app=initializeApp(firebaseConfig);
-const db=getDatabase(app);
+// Coordenadas do sensor (para o mapa)
+const SENSOR_LAT = -23.550520;
+const SENSOR_LNG = -46.633308;
+const SENSOR_NOME = "Sensor Principal";
 
-window.ligarRele=()=>set(ref(db,"controle/rele"),true);
-window.desligarRele=()=>set(ref(db,"controle/rele"),false);
-window.autoOn=()=>set(ref(db,"controle/automatico"),true);
-window.autoOff=()=>set(ref(db,"controle/automatico"),false);
+// Chaves do Realtime Database
+const DB = {
+  temp:     "/temperatura",
+  hum:      "/umidade",
+  ire:      "/ire",
+  risco:    "/risco",        // "BAIXO" | "MODERADO" | "ALTO" | "CRITICO"
+  modoAuto: "/modoAutomatico",
+  rele:     "/rele",
+};
 
-onValue(ref(db,"dados"),s=>{
- const d=s.val(); if(!d)return;
- temp.innerHTML=d.temperatura+" °C";
- hum.innerHTML=d.umidade+" %";
- chuva.innerHTML=d.chuvaPrevista+" mm";
- ire.innerHTML=d.ire;
- estadoRele.innerHTML=d.estadoRele;
- risco.innerHTML=d.risco;
- const cores={BAIXO:"#22c55e",MODERADO:"#eab308",ALTO:"#f97316",CRITICO:"#ef4444"};
- risco.style.background=cores[d.risco]||"#666";
+// ════════════════════════════════════════════════
+//  OPEN-METEO
+// ════════════════════════════════════════════════
+async function fetchWeather() {
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${SENSOR_LAT}&longitude=${SENSOR_LNG}`
+      + `&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,surface_pressure,cloud_cover,uv_index,weather_code`
+      + `&hourly=precipitation&forecast_days=1&timezone=America%2FSao_Paulo`;
+    const r = await fetch(url);
+    const d = await r.json();
+    const c = d.current;
+
+    // Chuva: soma das próximas 24h
+    const rain24h = (d.hourly?.precipitation || []).reduce((s,v) => s + (v||0), 0);
+
+    // Weather code → emoji + texto
+    const wc = c.weather_code;
+    const cond = wc === 0 ? ['☀️','Céu limpo'] :
+                 wc <= 3  ? ['🌤️','Parcialmente nublado'] :
+                 wc <= 49 ? ['🌫️','Névoa'] :
+                 wc <= 69 ? ['🌧️','Chuva'] :
+                 wc <= 79 ? ['🌨️','Neve'] :
+                 wc <= 99 ? ['⛈️','Tempestade'] : ['🌡️','--'];
+
+    // Atualizar cards de chuva/vento vindos do ESP
+    setVal('chuvaDisplay', rain24h.toFixed(1));
+    setVal('chuvaSub', 'Open-Meteo · próx. 24h');
+    setProgress('chuvaBar', Math.min(rain24h / 60 * 100, 100), 'amber');
+
+    setVal('ventoDisplay', Math.round(c.wind_speed_10m));
+    setProgress('ventoBar', Math.min(c.wind_speed_10m / 120 * 100, 100), '');
+
+    // Weather row
+    const weatherRow = document.getElementById('weatherRow');
+    weatherRow.innerHTML = `
+      <div class="weather-item"><span class="weather-emoji">${cond[0]}</span><span class="weather-val" style="font-size:.85rem">${cond[1]}</span><span class="weather-key">Condição</span></div>
+      <div class="weather-item"><span class="weather-emoji">📊</span><span class="weather-val">${Math.round(c.surface_pressure)}</span><span class="weather-key">hPa</span></div>
+      <div class="weather-item"><span class="weather-emoji">🌞</span><span class="weather-val">${c.uv_index ?? '--'}</span><span class="weather-key">Índice UV</span></div>
+      <div class="weather-item"><span class="weather-emoji">☁️</span><span class="weather-val">${c.cloud_cover}%</span><span class="weather-key">Nuvens</span></div>
+    `;
+  } catch(e) {
+    console.warn('Open-Meteo error', e);
+  }
+}
+
+// ════════════════════════════════════════════════
+//  FIREBASE
+// ════════════════════════════════════════════════
+let app, db;
+
+function initFirebase() {
+  try {
+    app = initializeApp(firebaseConfig);
+    db  = getDatabase(app);
+
+    // Listeners
+    listen(DB.temp, val => {
+      const v = Number(val);
+      setVal('tempDisplay', v.toFixed(1));
+      setVal('tempSub', v > 35 ? '⚠️ Temperatura alta' : v < 10 ? '❄️ Temperatura baixa' : 'Normal');
+      setProgress('tempBar', Math.min(v / 50 * 100, 100), v > 35 ? 'red' : 'green');
+      pushHistory('temp', v);
+    });
+
+    listen(DB.hum, val => {
+      const v = Number(val);
+      setVal('humDisplay', Math.round(v));
+      setVal('humSub', v > 85 ? '⚠️ Umidade muito alta' : 'Normal');
+      setProgress('humBar', v, v > 85 ? 'red' : '');
+      pushHistory('hum', v);
+    });
+
+    listen(DB.ire, val => {
+      const v = Number(val);
+      setVal('ireDisplay', Math.round(v));
+      updateGauge(v);
+      pushHistory('ire', v);
+    });
+
+    listen(DB.risco, val => {
+      updateRisk(String(val).toUpperCase());
+    });
+
+    listen(DB.modoAuto, val => {
+      const on = val === true || val === 'true' || val === 1;
+      setVal('modoAutoDisplay', on ? '✅ ATIVO' : '⏸ INATIVO');
+    });
+
+    listen(DB.rele, val => {
+      const on = val === true || val === 'true' || val === 1;
+      setVal('releDisplay', on ? '⚡ LIGADO' : '○ DESLIGADO');
+    });
+
+    setStatus('online', 'ESP32 Online');
+  } catch(e) {
+    console.error('Firebase error', e);
+    setStatus('offline', 'Firebase offline');
+  }
+}
+
+function listen(path, cb) {
+  onValue(ref(db, path), snap => {
+    if (snap.exists()) { cb(snap.val()); updateLastTime(); }
+  });
+}
+
+// Expose to window for button onclick
+window.autoOn  = () => set(ref(db, DB.modoAuto), true);
+window.autoOff = () => set(ref(db, DB.modoAuto), false);
+window.ligarRele    = () => set(ref(db, DB.rele), true);
+window.desligarRele = () => set(ref(db, DB.rele), false);
+
+// ════════════════════════════════════════════════
+//  UI HELPERS
+// ════════════════════════════════════════════════
+function setVal(id, v) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = v;
+}
+
+function setProgress(id, pct, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  el.className = 'progress-fill ' + (cls || '');
+}
+
+function setStatus(state, label) {
+  const dot = document.getElementById('statusDot');
+  const lbl = document.getElementById('statusLabel');
+  if (dot) dot.className = 'pulse-dot ' + (state === 'offline' ? 'offline' : state === 'warn' ? 'warn' : '');
+  if (lbl) lbl.textContent = label;
+}
+
+function updateLastTime() {
+  const el = document.getElementById('lastUpdateTime');
+  if (el) el.textContent = new Date().toLocaleTimeString('pt-BR');
+}
+
+// ════════════════════════════════════════════════
+//  GAUGE
+// ════════════════════════════════════════════════
+function updateGauge(ire) {
+  const pct = Math.max(0, Math.min(100, ire)) / 100;
+  const totalLen = 251;
+  const arc = document.getElementById('gaugeArc');
+  if (arc) arc.style.strokeDashoffset = totalLen * (1 - pct);
+
+  // Needle: -90° (left) to +90° (right), mapped to 0–100
+  const angle = -90 + pct * 180;
+  const needle = document.getElementById('gaugeNeedle');
+  if (needle) needle.style.transform = `rotate(${angle}deg)`;
+  // Note: transform-origin must be center of gauge
+  if (needle) needle.setAttribute('transform', `rotate(${angle} 100 100)`);
+}
+
+// ════════════════════════════════════════════════
+//  RISK
+// ════════════════════════════════════════════════
+const riskMap = {
+  'BAIXO':   { cls:'baixo',    label:'🟢 RISCO BAIXO',    alert:false },
+  'MODERADO':{ cls:'moderado', label:'🟡 RISCO MODERADO', alert:false },
+  'ALTO':    { cls:'alto',     label:'🔴 RISCO ALTO',     alert:true, msg:'Atenção! Risco alto de enchente. Monitore pontos críticos.' },
+  'CRITICO': { cls:'critico',  label:'🚨 RISCO CRÍTICO',  alert:true, msg:'EVACUAÇÃO RECOMENDADA — Risco crítico de enchente detectado!' },
+};
+
+function updateRisk(nivel) {
+  const info = riskMap[nivel] || riskMap['BAIXO'];
+  const badge  = document.getElementById('riskBadge');
+  const banner = document.getElementById('alertBanner');
+  const msg    = document.getElementById('alertMsg');
+
+  if (badge)  { badge.className = 'risk-badge ' + info.cls; badge.textContent = info.label; }
+  if (banner) banner.classList.toggle('active', !!info.alert);
+  if (msg && info.msg) msg.textContent = info.msg;
+}
+
+// ════════════════════════════════════════════════
+//  HISTORY + CHART
+// ════════════════════════════════════════════════
+const MAX_PTS = 24;
+const history = { ire:[], temp:[], hum:[], chuva:[] };
+const labels  = [];
+
+function pushHistory(key, val) {
+  if (!history[key]) return;
+  const now = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+  history[key].push(val);
+  if (history[key].length > MAX_PTS) history[key].shift();
+  if (key === 'ire') {
+    labels.push(now);
+    if (labels.length > MAX_PTS) labels.shift();
+  }
+  if (currentMode === key) updateChart();
+}
+
+let currentMode = 'ire';
+const modeLabels = {
+  ire:'IRE — Índice de Risco de Enchente',
+  temp:'Temperatura (°C)',
+  hum:'Umidade (%)',
+  chuva:'Chuva (mm/24h)'
+};
+const modeColors = {
+  ire:'#EF4444', temp:'#10B981', hum:'#0EA5E9', chuva:'#F59E0B'
+};
+
+window.setChartMode = function(mode) {
+  currentMode = mode;
+  document.getElementById('chartLegendLabel').textContent = modeLabels[mode] || mode;
+  ['IRE','Temp','Hum','Chuva'].forEach(k => {
+    const b = document.getElementById('btn' + k);
+    if (b) b.style.opacity = '1';
+  });
+  updateChart();
+};
+
+let chart;
+function initChart() {
+  const ctx = document.getElementById('histChart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: history[currentMode],
+        borderColor: modeColors[currentMode],
+        backgroundColor: modeColors[currentMode] + '18',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: modeColors[currentMode],
+        fill: true,
+        tension: .4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color:'#4A7296', font:{size:10}, maxTicksLimit:6 }, grid:{ color:'rgba(255,255,255,.04)' } },
+        y: { ticks: { color:'#4A7296', font:{size:10} }, grid:{ color:'rgba(255,255,255,.04)' } }
+      },
+      interaction: { mode:'index', intersect:false },
+      animation: { duration:400 }
+    }
+  });
+}
+
+function updateChart() {
+  if (!chart) return;
+  chart.data.labels = [...labels];
+  chart.data.datasets[0].data = [...history[currentMode]];
+  chart.data.datasets[0].borderColor = modeColors[currentMode];
+  chart.data.datasets[0].backgroundColor = modeColors[currentMode] + '18';
+  chart.data.datasets[0].pointBackgroundColor = modeColors[currentMode];
+  chart.update('none');
+}
+
+// ════════════════════════════════════════════════
+//  MAP
+// ════════════════════════════════════════════════
+function initMap() {
+  const map = L.map('map', { zoomControl:true }).setView([SENSOR_LAT, SENSOR_LNG], 15);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'© OpenStreetMap',
+    maxZoom:19
+  }).addTo(map);
+
+  // Custom marker
+  const icon = L.divIcon({
+    html:`<div style="
+      background:linear-gradient(135deg,#0EA5E9,#22D3EE);
+      width:36px;height:36px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:18px;
+      box-shadow:0 0 0 4px rgba(14,165,233,.3),0 2px 12px rgba(0,0,0,.4);
+    ">🌊</div>`,
+    className:'',
+    iconSize:[36,36],
+    iconAnchor:[18,18]
+  });
+
+  L.marker([SENSOR_LAT, SENSOR_LNG], { icon })
+    .addTo(map)
+    .bindPopup(`<b>${SENSOR_NOME}</b><br>Lat: ${SENSOR_LAT}<br>Lng: ${SENSOR_LNG}`);
+
+  // Risk zone circle (500m)
+  L.circle([SENSOR_LAT, SENSOR_LNG], {
+    radius:500,
+    color:'#EF4444',
+    fillColor:'#EF4444',
+    fillOpacity:.08,
+    weight:1.5,
+    dashArray:'6 4'
+  }).addTo(map).bindPopup('Zona de risco monitorada (500m)');
+}
+
+// ════════════════════════════════════════════════
+//  THEME
+// ════════════════════════════════════════════════
+const toggle = document.getElementById('themeToggle');
+toggle.addEventListener('click', () => {
+  const html = document.documentElement;
+  const isDark = html.dataset.theme === 'dark';
+  html.dataset.theme = isDark ? 'light' : 'dark';
+  toggle.textContent = isDark ? '🌙' : '☀️';
 });
-onValue(ref(db,"controle"),s=>{
- const c=s.val(); if(!c)return;
- modoAuto.innerHTML=c.automatico?"ON":"OFF";
-});
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+initChart();
+initMap();
+fetchWeather();
+setInterval(fetchWeather, 10 * 60 * 1000); // atualiza clima a cada 10min
+initFirebase();
 </script>
-</body></html>
+</body>
+</html>
