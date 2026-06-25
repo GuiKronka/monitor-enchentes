@@ -1,43 +1,38 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Monitor Inteligente de Enchentes</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff}
-header{padding:30px;text-align:center}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;padding:20px;max-width:1200px;margin:auto}
-.card{background:#ffffff12;border:1px solid #ffffff22;border-radius:18px;padding:20px;backdrop-filter:blur(8px);box-shadow:0 8px 20px rgba(0,0,0,.25)}
-h2{margin:0 0 10px} .valor{font-size:2rem;font-weight:bold}
-button{padding:12px 18px;border:none;border-radius:10px;margin:6px;cursor:pointer;font-weight:bold}
-.on{background:#22c55e;color:#fff}.off{background:#ef4444;color:#fff}.auto{background:#2563eb;color:#fff}
-#risco{padding:10px;border-radius:12px}
-footer{text-align:center;padding:20px;color:#ddd}
-</style>
-</head>
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial;background:#07111f;color:#fff}
+header{background:linear-gradient(90deg,#0f4c81,#0ea5e9);padding:24px}
+header h1{margin:0}.sub{opacity:.9}
+.container{max-width:1300px;margin:auto;padding:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
+.card{background:#13263d;border-radius:18px;padding:20px;box-shadow:0 8px 18px rgba(0,0,0,.35);transition:.25s}
+.card:hover{transform:translateY(-4px)}
+.value{font-size:2rem;font-weight:bold}
+#riskCard{text-align:center;padding:30px;font-size:2rem;font-weight:bold}
+.buttons button{padding:12px 18px;margin:6px;border:0;border-radius:10px;font-weight:bold;cursor:pointer}
+.green{background:#16a34a;color:#fff}.red{background:#dc2626;color:#fff}.blue{background:#2563eb;color:#fff}
+footer{text-align:center;color:#9fb3c8;padding:25px}
+</style></head>
 <body>
-<header>
-<h1>🌊 Monitor Inteligente de Enchentes</h1>
-<p>Status em tempo real via ESP32 + Firebase</p>
-</header>
-
-<div class="grid">
-<div class="card"><h2>🌡 Temperatura</h2><div id="temp" class="valor">--</div></div>
-<div class="card"><h2>💧 Umidade</h2><div id="hum" class="valor">--</div></div>
-<div class="card"><h2>🌧 Chuva Prevista</h2><div id="chuva" class="valor">--</div></div>
-<div class="card"><h2>📈 IRE</h2><div id="ire" class="valor">--</div></div>
-<div class="card"><h2>⚠️ Risco</h2><div id="risco" class="valor">--</div></div>
-<div class="card"><h2>🤖 Modo Automático</h2><div id="modoAuto" class="valor">--</div>
-<button class="auto" onclick="autoOn()">AUTO ON</button>
-<button class="off" onclick="autoOff()">AUTO OFF</button></div>
-<div class="card"><h2>🔌 Estado do Relé</h2><div id="estadoRele" class="valor">--</div>
-<button class="on" onclick="ligarRele()">Ligar</button>
-<button class="off" onclick="desligarRele()">Desligar</button></div>
+<header><h1>🌊 Monitor Inteligente de Enchentes</h1><div class=sub>ESP32 • Firebase • Open‑Meteo</div></header>
+<div class=container>
+<div class=grid>
+<div class=card><h3>🌡 Temperatura</h3><div id=temp class=value>--</div></div>
+<div class=card><h3>💧 Umidade</h3><div id=hum class=value>--</div></div>
+<div class=card><h3>🌧 Chuva Prevista</h3><div id=chuva class=value>--</div></div>
+<div class=card><h3>📈 IRE</h3><div id=ire class=value>--</div></div>
 </div>
-
-<footer>Monitor de Enchentes • ESP32 • Firebase • Open-Meteo</footer>
-
+<div class="card" id="riskCard"><div>⚠️ RISCO</div><div id=risco>--</div></div>
+<div class=grid>
+<div class=card><h3>🤖 Modo Automático</h3><div id=modoAuto class=value>--</div>
+<div class=buttons><button class=blue onclick=autoOn()>AUTO ON</button><button class=red onclick=autoOff()>AUTO OFF</button></div></div>
+<div class=card><h3>🔌 Relé</h3><div id=estadoRele class=value>--</div>
+<div class=buttons><button class=green onclick=ligarRele()>Ligar</button><button class=red onclick=desligarRele()>Desligar</button></div></div>
+</div>
+</div>
+<footer>Atualização em tempo real</footer>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getDatabase,ref,onValue,set} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
@@ -76,5 +71,4 @@ onValue(ref(db,"controle"),s=>{
  modoAuto.innerHTML=c.automatico?"ON":"OFF";
 });
 </script>
-</body>
-</html>
+</body></html>
