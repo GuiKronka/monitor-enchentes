@@ -621,7 +621,7 @@ import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebase
 
 const firebaseConfig = {
   // ── COLE AQUI SUA CONFIG DO FIREBASE ──
-apiKey: "AIzaSyAC5BprHfoHEoe1AfLYv4h98eod01sf52U",
+  apiKey: "AIzaSyAC5BprHfoHEoe1AfLYv4h98eod01sf52U",
 authDomain:"monitor-enchentes.firebaseapp.com",
 databaseURL:"https://monitor-enchentes-default-rtdb.firebaseio.com",
 projectId:"monitor-enchentes",
@@ -637,12 +637,14 @@ const SENSOR_NOME = "Sensor Principal";
 
 // Chaves do Realtime Database
 const DB = {
-  temp:     "/temperatura",
-  hum:      "/umidade",
-  ire:      "/ire",
-  risco:    "/risco",        // "BAIXO" | "MODERADO" | "ALTO" | "CRITICO"
-  modoAuto: "/modoAutomatico",
-  rele:     "/rele",
+  temp:       "/dados/temperatura",
+  hum:        "/dados/umidade",
+  chuva:      "/dados/chuvaPrevista",
+  ire:        "/dados/ire",           // escala 0–1
+  risco:      "/dados/risco",         // "BAIXO" | "MODERADO" | "ALTO" | "CRITICO"
+  estadoRele: "/dados/estadoRele",    // "Ligado" | "Desligado"
+  modoAuto:   "/controle/automatico",
+  rele:       "/controle/rele",
 };
 
 // ════════════════════════════════════════════════
@@ -718,10 +720,20 @@ function initFirebase() {
     });
 
     listen(DB.ire, val => {
-      const v = Number(val);
+      // IRE vem em escala 0–1, converter para 0–100
+      const raw = Number(val);
+      const v = raw <= 1 ? raw * 100 : raw;
       setVal('ireDisplay', Math.round(v));
       updateGauge(v);
       pushHistory('ire', v);
+    });
+
+    listen(DB.chuva, val => {
+      const v = Number(val);
+      setVal('chuvaDisplay', v.toFixed(1));
+      setVal('chuvaSub', 'ESP32 · dado direto');
+      setProgress('chuvaBar', Math.min(v / 60 * 100, 100), 'amber');
+      pushHistory('chuva', v);
     });
 
     listen(DB.risco, val => {
@@ -736,6 +748,13 @@ function initFirebase() {
     listen(DB.rele, val => {
       const on = val === true || val === 'true' || val === 1;
       setVal('releDisplay', on ? '⚡ LIGADO' : '○ DESLIGADO');
+    });
+
+    // estadoRele como texto (backup do /dados)
+    listen(DB.estadoRele, val => {
+      if (document.getElementById('releDisplay').textContent === '--') {
+        setVal('releDisplay', String(val));
+      }
     });
 
     setStatus('online', 'ESP32 Online');
@@ -999,7 +1018,7 @@ window.runDiag = async function() {
     }
     walk(data, '', 0);
     lines.push('\n─────────────────────────────────');
-    lines.push('📋 Cole este resultado para o Claude mapear os caminhos certos.');
+    lines.push('📋 dados para debugação e testes.');
     out.textContent = lines.join('\n');
   } catch(e) {
     out.textContent = '❌ Erro ao ler banco:\n' + e.message + '\n\nPossíveis causas:\n• Regras do banco bloqueando leitura\n• databaseURL incorreta na firebaseConfig';
