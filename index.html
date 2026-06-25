@@ -2,215 +2,79 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monitor de Enchentes</title>
-
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monitor Inteligente de Enchentes</title>
 <style>
-body{
-    font-family:Arial,sans-serif;
-    background:#f0f2f5;
-    text-align:center;
-    padding:20px;
-}
-
-.card{
-    background:white;
-    max-width:600px;
-    margin:auto;
-    margin-bottom:20px;
-    padding:20px;
-    border-radius:15px;
-    box-shadow:0 2px 10px rgba(0,0,0,0.2);
-}
-
-.valor{
-    font-size:32px;
-    font-weight:bold;
-}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff}
+header{padding:30px;text-align:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;padding:20px;max-width:1200px;margin:auto}
+.card{background:#ffffff12;border:1px solid #ffffff22;border-radius:18px;padding:20px;backdrop-filter:blur(8px);box-shadow:0 8px 20px rgba(0,0,0,.25)}
+h2{margin:0 0 10px} .valor{font-size:2rem;font-weight:bold}
+button{padding:12px 18px;border:none;border-radius:10px;margin:6px;cursor:pointer;font-weight:bold}
+.on{background:#22c55e;color:#fff}.off{background:#ef4444;color:#fff}.auto{background:#2563eb;color:#fff}
+#risco{padding:10px;border-radius:12px}
+footer{text-align:center;padding:20px;color:#ddd}
 </style>
 </head>
 <body>
+<header>
+<h1>🌊 Monitor Inteligente de Enchentes</h1>
+<p>Status em tempo real via ESP32 + Firebase</p>
+</header>
 
-<h1>🌧️ Monitor de Enchentes</h1>
-
-<div class="card">
-    <h2>🌡 Temperatura</h2>
-    <div class="valor" id="temp">--</div>
+<div class="grid">
+<div class="card"><h2>🌡 Temperatura</h2><div id="temp" class="valor">--</div></div>
+<div class="card"><h2>💧 Umidade</h2><div id="hum" class="valor">--</div></div>
+<div class="card"><h2>🌧 Chuva Prevista</h2><div id="chuva" class="valor">--</div></div>
+<div class="card"><h2>📈 IRE</h2><div id="ire" class="valor">--</div></div>
+<div class="card"><h2>⚠️ Risco</h2><div id="risco" class="valor">--</div></div>
+<div class="card"><h2>🤖 Modo Automático</h2><div id="modoAuto" class="valor">--</div>
+<button class="auto" onclick="autoOn()">AUTO ON</button>
+<button class="off" onclick="autoOff()">AUTO OFF</button></div>
+<div class="card"><h2>🔌 Estado do Relé</h2><div id="estadoRele" class="valor">--</div>
+<button class="on" onclick="ligarRele()">Ligar</button>
+<button class="off" onclick="desligarRele()">Desligar</button></div>
 </div>
 
-<div class="card">
-    <h2>💧 Umidade</h2>
-    <div class="valor" id="hum">--</div>
-</div>
+<footer>Monitor de Enchentes • ESP32 • Firebase • Open-Meteo</footer>
 
-<div class="card">
-    <h2>🌧 Chuva Prevista</h2>
-    <div class="valor" id="chuva">--</div>
-</div>
-
-<div class="card">
-    <h2>📈 IRE</h2>
-    <div class="valor" id="ire">--</div>
-</div>
-
-<div class="card">
-    <h2>⚠️ Risco</h2>
-    <div class="valor" id="risco">--</div>
-</div>
-
-<div class="card">
-
-<h2>🤖 Modo Automático</h2>
-
-<div class="valor" id="modoAuto">
---
-</div>
-
-<button onclick="autoOn()">
-AUTO ON
-</button>
-
-<button onclick="autoOff()">
-AUTO OFF
-</button>
-
-</div>
-
-<div class="card">
-
-<h2>🔌 Estado do Relé</h2>
-
-<div class="valor" id="estadoRele">
---
-</div>
-
-</div>
-
-<div class="card">
-
-<h2>🔌 Controle do Relé</h2>
-
-<button onclick="ligarRele()">
-Ligar
-</button>
-
-<button onclick="desligarRele()">
-Desligar
-</button>
-
-</div>
 <script type="module">
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getDatabase,
-  ref,
-  onValue,
-  set
-}
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import {getDatabase,ref,onValue,set} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyAC5BprHfoHEoe1AfLYv4h98eod01sf52U",
-  authDomain: "monitor-enchentes.firebaseapp.com",
-  databaseURL: "https://monitor-enchentes-default-rtdb.firebaseio.com",
-  projectId: "monitor-enchentes",
-  storageBucket: "monitor-enchentes.firebasestorage.app",
-  messagingSenderId: "579140784094",
-  appId: "1:579140784094:web:8369295db1d090d7bfd74f"
+const firebaseConfig={
+apiKey:"SUA_API_KEY",
+authDomain:"monitor-enchentes.firebaseapp.com",
+databaseURL:"https://monitor-enchentes-default-rtdb.firebaseio.com",
+projectId:"monitor-enchentes",
+storageBucket:"monitor-enchentes.firebasestorage.app",
+messagingSenderId:"579140784094",
+appId:"SEU_APP_ID"
 };
 
-const app = initializeApp(firebaseConfig);
-    console.log("Firebase iniciou");
-const db = getDatabase(app);
-    console.log("Banco conectado");
-   window.ligarRele = function(){
+const app=initializeApp(firebaseConfig);
+const db=getDatabase(app);
 
-    set(
-      ref(db,"controle/rele"),
-      true
-    );
-}
+window.ligarRele=()=>set(ref(db,"controle/rele"),true);
+window.desligarRele=()=>set(ref(db,"controle/rele"),false);
+window.autoOn=()=>set(ref(db,"controle/automatico"),true);
+window.autoOff=()=>set(ref(db,"controle/automatico"),false);
 
-window.ligarRele = function(){
-
-    set(
-      ref(db,"controle/rele"),
-      true
-    );
-}
-
-window.desligarRele = function(){
-
-    set(
-      ref(db,"controle/rele"),
-      false
-    );
-}
-
-window.autoOn = function(){
-
-    set(
-      ref(db,"controle/automatico"),
-      true
-    );
-}
-
-window.autoOff = function(){
-
-    set(
-      ref(db,"controle/automatico"),
-      false
-    );
-}
-const dadosRef = ref(db, "dados");
-
-onValue(dadosRef, (snapshot) => {
-  console.log("Recebi dados:");
-  console.log(snapshot.val());
-
-  const dados = snapshot.val();
-
-  if(!dados) return;
-
-  document.getElementById("temp").innerHTML =
-      dados.temperatura + " °C";
-
-  document.getElementById("hum").innerHTML =
-      dados.umidade + " %";
-
-  document.getElementById("chuva").innerHTML =
-      dados.chuvaPrevista + " mm";
-
-  document.getElementById("ire").innerHTML =
-      dados.ire;
-
-  document.getElementById("risco").innerHTML =
-      dados.risco;
-    const estado = document.getElementById("estadoRele");
-
-estado.innerHTML = dados.estadoRele;
-
-if(dados.estadoRele == "Ligado"){
-    estado.style.color = "green";
-}
-else{
-    estado.style.color = "red";
-}
+onValue(ref(db,"dados"),s=>{
+ const d=s.val(); if(!d)return;
+ temp.innerHTML=d.temperatura+" °C";
+ hum.innerHTML=d.umidade+" %";
+ chuva.innerHTML=d.chuvaPrevista+" mm";
+ ire.innerHTML=d.ire;
+ estadoRele.innerHTML=d.estadoRele;
+ risco.innerHTML=d.risco;
+ const cores={BAIXO:"#22c55e",MODERADO:"#eab308",ALTO:"#f97316",CRITICO:"#ef4444"};
+ risco.style.background=cores[d.risco]||"#666";
 });
-        const controleRef = ref(db,"controle");
-
-onValue(controleRef,(snapshot)=>{
-
-    const controle = snapshot.val();
-
-    if(!controle) return;
-
-    document.getElementById("modoAuto").innerHTML =
-    controle.automatico ? "ON" : "OFF";
+onValue(ref(db,"controle"),s=>{
+ const c=s.val(); if(!c)return;
+ modoAuto.innerHTML=c.automatico?"ON":"OFF";
 });
-
 </script>
-
 </body>
 </html>
