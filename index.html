@@ -570,6 +570,37 @@ footer a{color:var(--txt2);text-decoration:none}
 
 </main>
 
+<!-- ══════════ DIAGNOSTIC PANEL ══════════ -->
+<div class="container" style="margin-top:0;padding-top:0">
+  <details id="diagDetails" style="margin-bottom:24px">
+    <summary style="
+      cursor:pointer;font-size:.78rem;color:var(--txt3);
+      list-style:none;display:flex;align-items:center;gap:8px;
+      padding:10px 16px;background:var(--surface);border:1px solid var(--border);
+      border-radius:10px;user-select:none;
+    ">
+      <span>🔧</span>
+      <span>Diagnóstico Firebase — clique para expandir</span>
+      <span style="margin-left:auto;font-size:.7rem;opacity:.6">use para descobrir os caminhos do banco</span>
+    </summary>
+    <div style="
+      background:var(--surface);border:1px solid var(--border);
+      border-top:none;border-radius:0 0 10px 10px;padding:16px;
+    ">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn btn-blue" style="flex:none;padding:7px 16px;font-size:.78rem" onclick="runDiag()">🔍 Escanear banco agora</button>
+        <span style="font-size:.72rem;color:var(--txt3)">Lê a raiz do Firebase e lista todas as chaves e valores encontrados</span>
+      </div>
+      <pre id="diagOutput" style="
+        background:#07111f;border:1px solid var(--border);border-radius:8px;
+        padding:14px;font-size:.78rem;color:#7BA8C8;font-family:monospace;
+        white-space:pre-wrap;max-height:300px;overflow-y:auto;margin:0;
+        min-height:48px;
+      ">Clique em "Escanear banco agora" para ver a estrutura do seu Firebase...</pre>
+    </div>
+  </details>
+</div>
+
 <footer>
   <div>Monitor Inteligente de Enchentes — ESP32 + Firebase + Open-Meteo</div>
   <div style="margin-top:4px;opacity:.6">Dados atualizados em tempo real · v3.0</div>
@@ -590,7 +621,7 @@ import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebase
 
 const firebaseConfig = {
   // ── COLE AQUI SUA CONFIG DO FIREBASE ──
- apiKey: "AIzaSyAC5BprHfoHEoe1AfLYv4h98eod01sf52U",
+apiKey: "AIzaSyAC5BprHfoHEoe1AfLYv4h98eod01sf52U",
 authDomain:"monitor-enchentes.firebaseapp.com",
 databaseURL:"https://monitor-enchentes-default-rtdb.firebaseio.com",
 projectId:"monitor-enchentes",
@@ -715,8 +746,17 @@ function initFirebase() {
 }
 
 function listen(path, cb) {
+  console.log('[Firebase] Ouvindo:', path);
   onValue(ref(db, path), snap => {
-    if (snap.exists()) { cb(snap.val()); updateLastTime(); }
+    if (snap.exists()) {
+      console.log('[Firebase] Dado recebido em', path, '→', snap.val());
+      cb(snap.val());
+      updateLastTime();
+    } else {
+      console.warn('[Firebase] Caminho não encontrado:', path);
+    }
+  }, err => {
+    console.error('[Firebase] Erro no listener', path, err.message);
   });
 }
 
@@ -923,6 +963,48 @@ toggle.addEventListener('click', () => {
   html.dataset.theme = isDark ? 'light' : 'dark';
   toggle.textContent = isDark ? '🌙' : '☀️';
 });
+
+// ════════════════════════════════════════════════
+//  DIAGNÓSTICO — escaneia a raiz do Firebase
+// ════════════════════════════════════════════════
+window.runDiag = async function() {
+  const out = document.getElementById('diagOutput');
+  if (!db) {
+    out.textContent = '❌ Firebase não inicializado. Verifique se a firebaseConfig está preenchida corretamente.';
+    return;
+  }
+  out.textContent = '⏳ Lendo banco de dados...';
+
+  try {
+    const { get } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+    const snap = await get(ref(db, '/'));
+    if (!snap.exists()) {
+      out.textContent = '⚠️  Banco vazio ou sem permissão de leitura.\n\nVerifique as Regras do Realtime Database:\n  .read: true\n  .write: true';
+      return;
+    }
+    const data = snap.val();
+    let lines = ['✅  Banco conectado! Estrutura encontrada:\n'];
+
+    function walk(obj, path, depth) {
+      if (depth > 4) return;
+      for (const [k, v] of Object.entries(obj)) {
+        const fullPath = path + '/' + k;
+        if (v !== null && typeof v === 'object') {
+          lines.push('  '.repeat(depth) + `📁 ${fullPath}`);
+          walk(v, fullPath, depth + 1);
+        } else {
+          lines.push('  '.repeat(depth) + `🔑 ${fullPath}  →  ${JSON.stringify(v)}`);
+        }
+      }
+    }
+    walk(data, '', 0);
+    lines.push('\n─────────────────────────────────');
+    lines.push('📋 Cole este resultado para o Claude mapear os caminhos certos.');
+    out.textContent = lines.join('\n');
+  } catch(e) {
+    out.textContent = '❌ Erro ao ler banco:\n' + e.message + '\n\nPossíveis causas:\n• Regras do banco bloqueando leitura\n• databaseURL incorreta na firebaseConfig';
+  }
+};
 
 // ════════════════════════════════════════════════
 //  INIT
