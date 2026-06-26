@@ -419,11 +419,11 @@ footer a{color:var(--txt2);text-decoration:none}
           </defs>
           <!-- Track -->
           <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="14" stroke-linecap="round"/>
-          <!-- Colored arc -->
-          <path id="gaugeArc" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#arcGrad)" stroke-width="14" stroke-linecap="round"
-            stroke-dasharray="251" stroke-dashoffset="251" style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)"/>
-          <!-- Needle -->
-          <g id="gaugeNeedle" transform="rotate(-90 100 100)" style="transition:transform 1.2s cubic-bezier(.4,0,.2,1)">
+          <!-- Colored arc (background full gradient, clipped by dashoffset) -->
+          <path id="gaugeArc" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#10B981" stroke-width="14" stroke-linecap="round"
+            stroke-dasharray="251" stroke-dashoffset="251" style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1),stroke 1.2s"/>
+          <!-- Needle (pivots at center 100,100) -->
+          <g id="gaugeNeedle" style="transform-origin:100px 100px;transform:rotate(-90deg);transition:transform 1.2s cubic-bezier(.4,0,.2,1)">
             <line x1="100" y1="100" x2="100" y2="30" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".9"/>
             <circle cx="100" cy="100" r="5" fill="#fff"/>
           </g>
@@ -580,23 +580,51 @@ footer a{color:var(--txt2);text-decoration:none}
       border-radius:10px;user-select:none;
     ">
       <span>🔧</span>
-      <span>Diagnóstico Firebase — clique para expandir</span>
-      <span style="margin-left:auto;font-size:.7rem;opacity:.6">use para descobrir os caminhos do banco</span>
+      <span>Painel de Diagnóstico — clique para expandir</span>
+      <span style="margin-left:auto;font-size:.7rem;opacity:.6">Firebase · Gauge · Clima · Listeners</span>
     </summary>
     <div style="
       background:var(--surface);border:1px solid var(--border);
       border-top:none;border-radius:0 0 10px 10px;padding:16px;
     ">
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
-        <button class="btn btn-blue" style="flex:none;padding:7px 16px;font-size:.78rem" onclick="runDiag()">🔍 Escanear banco agora</button>
-        <span style="font-size:.72rem;color:var(--txt3)">Lê a raiz do Firebase e lista todas as chaves e valores encontrados</span>
+
+      <!-- Tabs de diagnóstico -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+        <button class="btn btn-blue"   style="flex:none;padding:6px 14px;font-size:.75rem" onclick="runDiag()">🔍 Firebase: Escanear banco</button>
+        <button class="btn btn-ghost"  style="flex:none;padding:6px 14px;font-size:.75rem" onclick="diagGauge()">🎯 Testar Gauge</button>
+        <button class="btn btn-ghost"  style="flex:none;padding:6px 14px;font-size:.75rem" onclick="diagWeather()">🌤️ Testar Clima</button>
+        <button class="btn btn-ghost"  style="flex:none;padding:6px 14px;font-size:.75rem" onclick="diagListeners()">📡 Status Listeners</button>
+        <button class="btn btn-ghost"  style="flex:none;padding:6px 14px;font-size:.75rem" onclick="diagClearLog()">🗑️ Limpar log</button>
       </div>
+
+      <!-- Simulador de IRE (teste do gauge sem Firebase) -->
+      <div style="margin-bottom:14px;padding:12px;background:#07111f;border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:.72rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🎯 Simulador — Testar gauge sem Firebase</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <input type="range" id="ireSlider" min="0" max="100" value="0"
+            style="flex:1;min-width:120px;accent-color:#0EA5E9"
+            oninput="simIRE(this.value)">
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:1.2rem;font-weight:700;color:var(--txt);min-width:40px" id="sliderLabel">0</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-ghost" style="padding:4px 10px;font-size:.72rem" onclick="simIRE(20)">Baixo (20)</button>
+            <button class="btn btn-ghost" style="padding:4px 10px;font-size:.72rem" onclick="simIRE(50)">Mod (50)</button>
+            <button class="btn btn-ghost" style="padding:4px 10px;font-size:.72rem" onclick="simIRE(75)">Alto (75)</button>
+            <button class="btn btn-ghost" style="padding:4px 10px;font-size:.72rem" onclick="simIRE(95)">Crítico (95)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Output de log -->
       <pre id="diagOutput" style="
         background:#07111f;border:1px solid var(--border);border-radius:8px;
-        padding:14px;font-size:.78rem;color:#7BA8C8;font-family:monospace;
-        white-space:pre-wrap;max-height:300px;overflow-y:auto;margin:0;
-        min-height:48px;
-      ">Clique em "Escanear banco agora" para ver a estrutura do seu Firebase...</pre>
+        padding:14px;font-size:.76rem;color:#7BA8C8;font-family:monospace;
+        white-space:pre-wrap;max-height:360px;overflow-y:auto;margin:0;
+        min-height:60px;
+      ">Clique num botão acima para iniciar o diagnóstico...</pre>
+
+      <div style="margin-top:10px;font-size:.7rem;color:var(--txt3);opacity:.7">
+        💡 Dica: abra o Console do navegador (F12) para ver logs detalhados dos listeners Firebase em tempo real.
+      </div>
     </div>
   </details>
 </div>
@@ -621,7 +649,7 @@ import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebase
 
 const firebaseConfig = {
   // ── COLE AQUI SUA CONFIG DO FIREBASE ──
-  apiKey: "AIzaSyAC5BprHfoHEoe1AfLYv4h98eod01sf52U",
+ apiKey: "AIzaSyAC5BprHfoHEoe1AfLYv4h98eod01sf52U",
 authDomain:"monitor-enchentes.firebaseapp.com",
 databaseURL:"https://monitor-enchentes-default-rtdb.firebaseio.com",
 projectId:"monitor-enchentes",
@@ -682,7 +710,7 @@ async function fetchWeather() {
     // Weather row
     const weatherRow = document.getElementById('weatherRow');
     weatherRow.innerHTML = `
-      <div class="weather-item"><span class="weather-emoji">${cond[0]}</span><span class="weather-val" style="font-size:.85rem">${cond[1]}</span><span class="weather-key">Condição</span></div>
+      <div class="weather-item"><span class="weather-emoji">${cond[0]}</span><span class="weather-val" style="font-size:.82rem;display:block;line-height:1.2">${cond[1]}</span><span class="weather-key">Condição</span></div>
       <div class="weather-item"><span class="weather-emoji">📊</span><span class="weather-val">${Math.round(c.surface_pressure)}</span><span class="weather-key">hPa</span></div>
       <div class="weather-item"><span class="weather-emoji">🌞</span><span class="weather-val">${c.uv_index ?? '--'}</span><span class="weather-key">Índice UV</span></div>
       <div class="weather-item"><span class="weather-emoji">☁️</span><span class="weather-val">${c.cloud_cover}%</span><span class="weather-key">Nuvens</span></div>
@@ -818,15 +846,22 @@ function updateLastTime() {
 function updateGauge(ire) {
   const pct = Math.max(0, Math.min(100, ire)) / 100;
   const totalLen = 251;
-  const arc = document.getElementById('gaugeArc');
-  if (arc) arc.style.strokeDashoffset = totalLen * (1 - pct);
 
-  // Needle: -90° (left) to +90° (right), mapped to 0–100
+  // Arc: revela proporcionalmente + cor dinâmica por faixa de risco
+  const arc = document.getElementById('gaugeArc');
+  if (arc) {
+    arc.style.strokeDashoffset = totalLen * (1 - pct);
+    const color = ire < 35 ? '#10B981'
+                : ire < 60 ? '#F59E0B'
+                : ire < 80 ? '#EF4444'
+                :            '#FF2D55';
+    arc.style.stroke = color;
+  }
+
+  // Ponteiro: -90deg (esq/0) -> +90deg (dir/100), pivô CSS em 100px 100px
   const angle = -90 + pct * 180;
   const needle = document.getElementById('gaugeNeedle');
   if (needle) needle.style.transform = `rotate(${angle}deg)`;
-  // Note: transform-origin must be center of gauge
-  if (needle) needle.setAttribute('transform', `rotate(${angle} 100 100)`);
 }
 
 // ════════════════════════════════════════════════
@@ -1018,7 +1053,7 @@ window.runDiag = async function() {
     }
     walk(data, '', 0);
     lines.push('\n─────────────────────────────────');
-    lines.push('📋 dados para debugação e testes.');
+    lines.push('📋 Cole este resultado para o Claude mapear os caminhos certos.');
     out.textContent = lines.join('\n');
   } catch(e) {
     out.textContent = '❌ Erro ao ler banco:\n' + e.message + '\n\nPossíveis causas:\n• Regras do banco bloqueando leitura\n• databaseURL incorreta na firebaseConfig';
@@ -1028,6 +1063,111 @@ window.runDiag = async function() {
 // ════════════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════════════
+// ════════════════════════════════════════════════
+//  DIAGNÓSTICO EXPANDIDO
+// ════════════════════════════════════════════════
+
+// Log helper — escreve no painel E no console
+function diagLog(text, type = 'info') {
+  const out = document.getElementById('diagOutput');
+  if (!out) return;
+  const ts = new Date().toLocaleTimeString('pt-BR');
+  const prefix = type === 'ok'    ? '✅' :
+                 type === 'warn'  ? '⚠️' :
+                 type === 'error' ? '❌' : 'ℹ️';
+  out.textContent += `[${ts}] ${prefix} ${text}\n`;
+  out.scrollTop = out.scrollHeight;
+  console.log(`[Diag][${type}] ${text}`);
+}
+
+window.diagClearLog = function() {
+  const out = document.getElementById('diagOutput');
+  if (out) out.textContent = '';
+};
+
+// Simula IRE no gauge sem precisar do Firebase
+window.simIRE = function(val) {
+  val = Number(val);
+  document.getElementById('ireSlider').value = val;
+  document.getElementById('sliderLabel').textContent = val;
+  setVal('ireDisplay', Math.round(val));
+  updateGauge(val);
+  // Calcula risco esperado
+  const nivel = val < 35 ? 'BAIXO' : val < 60 ? 'MODERADO' : val < 80 ? 'ALTO' : 'CRITICO';
+  updateRisk(nivel);
+  diagLog(`Gauge simulado: IRE=${val} → Risco ${nivel}`, 'ok');
+};
+
+// Testa gauge com animação varredura 0→100→valor atual
+window.diagGauge = function() {
+  const out = document.getElementById('diagOutput');
+  if (out) out.textContent = '';
+  diagLog('Iniciando teste do gauge...');
+  let v = 0;
+  const interval = setInterval(() => {
+    v += 5;
+    setVal('ireDisplay', v);
+    updateGauge(v);
+    const nivel = v < 35 ? 'BAIXO' : v < 60 ? 'MODERADO' : v < 80 ? 'ALTO' : 'CRITICO';
+    updateRisk(nivel);
+    document.getElementById('ireSlider').value = v;
+    document.getElementById('sliderLabel').textContent = v;
+    if (v >= 100) {
+      clearInterval(interval);
+      diagLog('Varredura 0→100 concluída. Ponteiro e cores OK?', 'ok');
+      diagLog('Use o slider acima para testar valores específicos.', 'info');
+    }
+  }, 80);
+};
+
+// Testa Open-Meteo e mostra JSON resumido
+window.diagWeather = async function() {
+  const out = document.getElementById('diagOutput');
+  if (out) out.textContent = '';
+  diagLog('Consultando Open-Meteo...');
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${SENSOR_LAT}&longitude=${SENSOR_LNG}`
+      + `&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,surface_pressure,cloud_cover,uv_index,weather_code`
+      + `&hourly=precipitation&forecast_days=1&timezone=America%2FSao_Paulo`;
+    const r = await fetch(url);
+    const d = await r.json();
+    const c = d.current;
+    diagLog(`Conexão OK — HTTP ${r.status}`, 'ok');
+    diagLog(`weather_code: ${c.weather_code}`);
+    diagLog(`temperature_2m: ${c.temperature_2m} °C`);
+    diagLog(`relative_humidity_2m: ${c.relative_humidity_2m} %`);
+    diagLog(`wind_speed_10m: ${c.wind_speed_10m} km/h`);
+    diagLog(`surface_pressure: ${c.surface_pressure} hPa`);
+    diagLog(`cloud_cover: ${c.cloud_cover} %`);
+    diagLog(`uv_index: ${c.uv_index}`);
+    const rain24h = (d.hourly?.precipitation || []).reduce((s,v) => s + (v||0), 0);
+    diagLog(`chuva próx 24h (soma horária): ${rain24h.toFixed(1)} mm`);
+    diagLog('Clima atualizado no painel.', 'ok');
+    fetchWeather();
+  } catch(e) {
+    diagLog('Erro ao consultar Open-Meteo: ' + e.message, 'error');
+  }
+};
+
+// Exibe status de cada listener Firebase configurado
+window.diagListeners = function() {
+  const out = document.getElementById('diagOutput');
+  if (out) out.textContent = '';
+  diagLog('=== Status dos Listeners Firebase ===');
+  if (!db) {
+    diagLog('Firebase NÃO inicializado. Configure firebaseConfig.', 'error');
+    return;
+  }
+  diagLog('Firebase inicializado', 'ok');
+  const paths = Object.entries(DB);
+  paths.forEach(([key, path]) => {
+    diagLog(`${key.padEnd(12)} → ${path}`);
+  });
+  diagLog('─────────────────────────');
+  diagLog('Veja o Console (F12) para valores recebidos em tempo real.');
+  diagLog('Se um caminho mostrar "não encontrado" no console, ajuste as constantes em DB{}.');
+};
+
 initChart();
 initMap();
 fetchWeather();
