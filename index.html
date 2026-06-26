@@ -790,8 +790,44 @@ footer a{color:var(--txt2);text-decoration:none}
       </div>
 
       <!-- Simulador de IRE (teste do gauge sem Firebase) -->
+      <!-- Configurador de coordenadas do sensor -->
+      <div style="margin-bottom:14px;padding:12px;background:#07111f;border:1px solid rgba(14,165,233,.3);border-radius:8px">
+        <div style="font-size:.72rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">📍 Coordenadas do Sensor</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px" id="coordInputGrid">
+          <div>
+            <div style="font-size:.68rem;color:var(--txt3);margin-bottom:4px">Latitude</div>
+            <input type="number" id="inputLat" step="0.000001" placeholder="-23.550520"
+              style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);
+              border-radius:7px;color:var(--txt);font-size:.8rem;font-family:'Inter',sans-serif;outline:none">
+          </div>
+          <div>
+            <div style="font-size:.68rem;color:var(--txt3);margin-bottom:4px">Longitude</div>
+            <input type="number" id="inputLng" step="0.000001" placeholder="-46.633308"
+              style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);
+              border-radius:7px;color:var(--txt);font-size:.8rem;font-family:'Inter',sans-serif;outline:none">
+          </div>
+          <div>
+            <div style="font-size:.68rem;color:var(--txt3);margin-bottom:4px">Nome do Sensor</div>
+            <input type="text" id="inputNome" placeholder="Sensor Principal"
+              style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);
+              border-radius:7px;color:var(--txt);font-size:.8rem;font-family:'Inter',sans-serif;outline:none">
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-blue" style="flex:none;padding:6px 16px;font-size:.75rem" onclick="applyCoords()">✅ Aplicar ao Mapa</button>
+          <button class="btn btn-ghost" style="flex:none;padding:6px 14px;font-size:.75rem" onclick="pasteFromClipboard()">📋 Colar do Maps</button>
+          <button class="btn btn-ghost" style="flex:none;padding:6px 14px;font-size:.75rem" onclick="resetCoords()">↩️ Restaurar padrão</button>
+          <span style="font-size:.7rem;color:var(--txt3)" id="coordCurrentLabel">
+            Atual: <b style="color:var(--accent)" id="coordCurrentVal">carregando…</b>
+          </span>
+        </div>
+        <div style="margin-top:8px;font-size:.68rem;color:var(--txt3);opacity:.8">
+          💡 Cole "lat, lng" copiado do Google Maps · coordenadas salvas no navegador
+        </div>
+      </div>
+
+      <!-- Simulador IRE -->
       <div style="margin-bottom:14px;padding:12px;background:#07111f;border:1px solid var(--border);border-radius:8px">
-        <div style="font-size:.72rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🎯 Simulador — Testar gauge sem Firebase</div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <input type="range" id="ireSlider" min="0" max="100" value="0"
             style="flex:1;min-width:120px;accent-color:#0EA5E9"
@@ -849,10 +885,23 @@ storageBucket:"monitor-enchentes.firebasestorage.app",
 messagingSenderId:"579140784094",
 appId: "1:579140784094:web:8369295db1d090d7bfd74f"
 };
-// Coordenadas do sensor (para o mapa)
-const SENSOR_LAT = -23.550520;
-const SENSOR_LNG = -46.633308;
-const SENSOR_NOME = "Sensor Principal";
+// Coordenadas do sensor (para o mapa) — podem ser alteradas via painel
+const LS_COORD_KEY = 'monitor_enchentes_coords_v1';
+let SENSOR_LAT, SENSOR_LNG, SENSOR_NOME;
+(function loadCoords() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS_COORD_KEY));
+    if (saved && saved.lat && saved.lng) {
+      SENSOR_LAT  = saved.lat;
+      SENSOR_LNG  = saved.lng;
+      SENSOR_NOME = saved.nome || 'Sensor Principal';
+      return;
+    }
+  } catch(e) {}
+  SENSOR_LAT  = -23.550520;
+  SENSOR_LNG  = -46.633308;
+  SENSOR_NOME = 'Sensor Principal';
+})();
 
 // Chaves do Realtime Database
 const DB = {
@@ -1189,6 +1238,7 @@ function updateChart() {
 // ════════════════════════════════════════════════
 function initMap() {
   const map = L.map('map', { zoomControl:true }).setView([SENSOR_LAT, SENSOR_LNG], 15);
+  window.__leafletMapInstance = map; // salva referência global
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution:'© OpenStreetMap',
@@ -1209,9 +1259,10 @@ function initMap() {
     iconAnchor:[18,18]
   });
 
-  L.marker([SENSOR_LAT, SENSOR_LNG], { icon })
+  const marker = L.marker([SENSOR_LAT, SENSOR_LNG], { icon })
     .addTo(map)
     .bindPopup(`<b>${SENSOR_NOME}</b><br>Lat: ${SENSOR_LAT}<br>Lng: ${SENSOR_LNG}`);
+  window.__leafletMarkerInstance = marker; // salva referência global
 
   // Risk zone circle (500m) — referência global para cor dinâmica
   window.riskZoneCircle = L.circle([SENSOR_LAT, SENSOR_LNG], {
@@ -1764,6 +1815,118 @@ function showToast(icon, msg, durationMs = 3500) {
   if (toastTimer) clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove('show'), durationMs);
 }
-</script>
+
+// ════════════════════════════════════════════════
+//  COORDENADAS — edição via painel
+// ════════════════════════════════════════════════
+
+// Inicializa campos com valores atuais
+function syncCoordInputs() {
+  const lat  = document.getElementById('inputLat');
+  const lng  = document.getElementById('inputLng');
+  const nome = document.getElementById('inputNome');
+  const lbl  = document.getElementById('coordCurrentVal');
+  if (lat)  lat.value  = SENSOR_LAT;
+  if (lng)  lng.value  = SENSOR_LNG;
+  if (nome) nome.value = SENSOR_NOME;
+  if (lbl)  lbl.textContent = `${SENSOR_LAT.toFixed(6)}, ${SENSOR_LNG.toFixed(6)}`;
+}
+// Roda depois que o DOM e o mapa estiverem prontos
+setTimeout(syncCoordInputs, 500);
+
+window.applyCoords = function() {
+  const latVal  = parseFloat(document.getElementById('inputLat').value);
+  const lngVal  = parseFloat(document.getElementById('inputLng').value);
+  const nomeVal = document.getElementById('inputNome').value.trim() || 'Sensor Principal';
+
+  if (isNaN(latVal) || isNaN(lngVal)) {
+    showToast('❌', 'Coordenadas inválidas. Use formato numérico (ex: -23.5505)');
+    return;
+  }
+  if (latVal < -90 || latVal > 90 || lngVal < -180 || lngVal > 180) {
+    showToast('❌', 'Coordenadas fora do intervalo válido');
+    return;
+  }
+
+  SENSOR_LAT  = latVal;
+  SENSOR_LNG  = lngVal;
+  SENSOR_NOME = nomeVal;
+
+  // Salva no localStorage
+  try {
+    localStorage.setItem(LS_COORD_KEY, JSON.stringify({ lat: latVal, lng: lngVal, nome: nomeVal }));
+  } catch(e) {}
+
+  // Atualiza o mapa Leaflet
+  const mapEl = document.getElementById('map');
+  if (mapEl && mapEl._leaflet_id) {
+    // Acessa instância Leaflet via referência interna
+    const lMap = window.__leafletMapInstance;
+    if (lMap) {
+      lMap.setView([SENSOR_LAT, SENSOR_LNG], lMap.getZoom());
+      // Move o marcador
+      if (window.__leafletMarkerInstance) {
+        window.__leafletMarkerInstance.setLatLng([SENSOR_LAT, SENSOR_LNG]);
+        window.__leafletMarkerInstance.setPopupContent(
+          `<b>${SENSOR_NOME}</b><br>Lat: ${SENSOR_LAT}<br>Lng: ${SENSOR_LNG}`
+        );
+      }
+      // Move o círculo
+      if (window.riskZoneCircle) {
+        window.riskZoneCircle.setLatLng([SENSOR_LAT, SENSOR_LNG]);
+      }
+    }
+  }
+
+  // Atualiza Open-Meteo com nova localização
+  fetchWeather();
+
+  syncCoordInputs();
+  showToast('📍', `Sensor movido para ${SENSOR_NOME} (${latVal.toFixed(5)}, ${lngVal.toFixed(5)})`);
+  diagLog(`Coordenadas atualizadas: lat=${latVal} lng=${lngVal} nome="${nomeVal}"`, 'ok');
+};
+
+window.pasteFromClipboard = async function() {
+  try {
+    const text = await navigator.clipboard.readText();
+    // Google Maps copia no formato "-23.5505, -46.6333" ou "-23.5505,-46.6333"
+    const match = text.match(/(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/);
+    if (match) {
+      document.getElementById('inputLat').value = match[1];
+      document.getElementById('inputLng').value = match[2];
+      showToast('📋', `Coordenadas coladas: ${match[1]}, ${match[2]}`);
+    } else {
+      showToast('⚠️', 'Não encontrei "lat, lng" no clipboard. Copie do Google Maps.');
+    }
+  } catch(e) {
+    showToast('❌', 'Permissão de leitura do clipboard negada');
+  }
+};
+
+window.resetCoords = function() {
+  SENSOR_LAT  = -23.550520;
+  SENSOR_LNG  = -46.633308;
+  SENSOR_NOME = 'Sensor Principal';
+  try { localStorage.removeItem(LS_COORD_KEY); } catch(e) {}
+  document.getElementById('inputLat').value  = SENSOR_LAT;
+  document.getElementById('inputLng').value  = SENSOR_LNG;
+  document.getElementById('inputNome').value = SENSOR_NOME;
+  syncCoordInputs();
+
+  const lMap = window.__leafletMapInstance;
+  if (lMap) {
+    lMap.setView([SENSOR_LAT, SENSOR_LNG], 15);
+    if (window.__leafletMarkerInstance) {
+      window.__leafletMarkerInstance.setLatLng([SENSOR_LAT, SENSOR_LNG]);
+      window.__leafletMarkerInstance.setPopupContent(
+        `<b>${SENSOR_NOME}</b><br>Lat: ${SENSOR_LAT}<br>Lng: ${SENSOR_LNG}`
+      );
+    }
+    if (window.riskZoneCircle) window.riskZoneCircle.setLatLng([SENSOR_LAT, SENSOR_LNG]);
+  }
+  fetchWeather();
+  showToast('↩️', 'Coordenadas restauradas para o padrão');
+  diagLog('Coordenadas restauradas para o padrão.', 'ok');
+};
 </body>
 </html>
