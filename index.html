@@ -169,6 +169,10 @@ body{
 .risk-badge.moderado{background:rgba(245,158,11,.15);color:#F59E0B;border:1px solid rgba(245,158,11,.3)}
 .risk-badge.alto{background:rgba(239,68,68,.15);color:#EF4444;border:1px solid rgba(239,68,68,.3)}
 .risk-badge.critico{background:rgba(239,68,68,.25);color:#FF6B6B;border:1px solid rgba(239,68,68,.5);animation:critical-pulse .8s ease-in-out infinite alternate}
+@keyframes sim-blink{
+  from{box-shadow:0 0 0 0 rgba(245,158,11,.3)}
+  to{box-shadow:0 0 8px 2px rgba(245,158,11,.15)}
+}
 @keyframes critical-pulse{
   from{box-shadow:0 0 0 0 rgba(239,68,68,.4)}
   to{box-shadow:0 0 12px 4px rgba(239,68,68,.3)}
@@ -438,6 +442,15 @@ footer a{color:var(--txt2);text-decoration:none}
         </div>
       </div>
 
+      <!-- Badge de modo teste (visível só quando simMode=true) -->
+      <div id="simModeBadge" style="
+        display:none;
+        background:rgba(245,158,11,.18);border:1px solid rgba(245,158,11,.5);
+        border-radius:8px;padding:5px 14px;margin-top:6px;margin-bottom:-4px;
+        font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:700;
+        letter-spacing:.08em;color:#F59E0B;text-align:center;
+        animation:sim-blink .9s ease-in-out infinite alternate;
+      ">🔬 MODO TESTE ATIVO</div>
       <div class="risk-badge baixo" id="riskBadge">--</div>
 
       <div class="alert-banner" id="alertBanner">
@@ -551,7 +564,15 @@ footer a{color:var(--txt2);text-decoration:none}
 
     <!-- History chart -->
     <div class="section-card fade-in" style="animation-delay:.35s">
-      <div class="section-title">📊 Histórico das Últimas 12h</div>
+      <div class="section-title" style="justify-content:space-between">
+        <span>📊 Histórico das Últimas 12h</span>
+        <span id="chartIntervalBadge" style="
+          font-family:'Inter',sans-serif;font-size:.68rem;font-weight:500;
+          letter-spacing:.04em;text-transform:none;color:var(--accent);
+          background:rgba(14,165,233,.1);border:1px solid rgba(14,165,233,.2);
+          border-radius:6px;padding:2px 8px;
+        ">⏱ 1 min</span>
+      </div>
       <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
         <button class="btn btn-ghost" style="flex:none;padding:5px 12px;font-size:.72rem" onclick="setChartMode('ire')" id="btnIRE">IRE</button>
         <button class="btn btn-ghost" style="flex:none;padding:5px 12px;font-size:.72rem" onclick="setChartMode('temp')" id="btnTemp">Temperatura</button>
@@ -595,6 +616,24 @@ footer a{color:var(--txt2);text-decoration:none}
         <button class="btn btn-ghost"  style="flex:none;padding:6px 14px;font-size:.75rem" onclick="diagWeather()">🌤️ Testar Clima</button>
         <button class="btn btn-ghost"  style="flex:none;padding:6px 14px;font-size:.75rem" onclick="diagListeners()">📡 Status Listeners</button>
         <button class="btn btn-ghost"  style="flex:none;padding:6px 14px;font-size:.75rem" onclick="diagClearLog()">🗑️ Limpar log</button>
+        <button class="btn btn-off" id="btnExitSim" style="flex:none;padding:6px 14px;font-size:.75rem;display:none" onclick="diagExitSim()">↩️ Sair do modo teste</button>
+      </div>
+
+      <!-- Configurador de intervalo do gráfico -->
+      <div style="margin-bottom:14px;padding:12px;background:#07111f;border:1px solid rgba(245,158,11,.25);border-radius:8px">
+        <div style="font-size:.72rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">⏱️ Intervalo de captura do gráfico</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:.75rem;color:var(--txt2)">Amostra a cada:</span>
+          <div style="display:flex;gap:5px;flex-wrap:wrap" id="intervalBtns">
+            <button class="btn btn-ghost" id="intBtn15s"  style="padding:4px 10px;font-size:.72rem" onclick="setChartInterval(15000)">15s</button>
+            <button class="btn btn-ghost" id="intBtn30s"  style="padding:4px 10px;font-size:.72rem" onclick="setChartInterval(30000)">30s</button>
+            <button class="btn btn-blue"  id="intBtn1m"   style="padding:4px 10px;font-size:.72rem" onclick="setChartInterval(60000)">1 min</button>
+            <button class="btn btn-ghost" id="intBtn5m"   style="padding:4px 10px;font-size:.72rem" onclick="setChartInterval(300000)">5 min</button>
+            <button class="btn btn-ghost" id="intBtn10m"  style="padding:4px 10px;font-size:.72rem" onclick="setChartInterval(600000)">10 min</button>
+            <button class="btn btn-ghost" id="intBtn30m"  style="padding:4px 10px;font-size:.72rem" onclick="setChartInterval(1800000)">30 min</button>
+          </div>
+          <span style="font-size:.72rem;color:var(--txt3)">Pontos: <b id="maxPtsLabel" style="color:var(--txt2)">24</b> · janela: <b id="windowLabel" style="color:var(--txt2)">24 min</b></span>
+        </div>
       </div>
 
       <!-- Simulador de IRE (teste do gauge sem Firebase) -->
@@ -649,7 +688,7 @@ import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebase
 
 const firebaseConfig = {
   // ── COLE AQUI SUA CONFIG DO FIREBASE ──
- apiKey: "AIzaSyAC5BprHfoHEoe1AfLYv4h98eod01sf52U",
+  apiKey: "AIzaSyAC5BprHfoHEoe1AfLYv4h98eod01sf52U",
 authDomain:"monitor-enchentes.firebaseapp.com",
 databaseURL:"https://monitor-enchentes-default-rtdb.firebaseio.com",
 projectId:"monitor-enchentes",
@@ -657,7 +696,6 @@ storageBucket:"monitor-enchentes.firebasestorage.app",
 messagingSenderId:"579140784094",
 appId: "1:579140784094:web:8369295db1d090d7bfd74f"
 };
-
 // Coordenadas do sensor (para o mapa)
 const SENSOR_LAT = -23.550520;
 const SENSOR_LNG = -46.633308;
@@ -733,39 +771,43 @@ function initFirebase() {
     // Listeners
     listen(DB.temp, val => {
       const v = Number(val);
+      lastRealValues.temp = v;
       setVal('tempDisplay', v.toFixed(1));
       setVal('tempSub', v > 35 ? '⚠️ Temperatura alta' : v < 10 ? '❄️ Temperatura baixa' : 'Normal');
       setProgress('tempBar', Math.min(v / 50 * 100, 100), v > 35 ? 'red' : 'green');
-      pushHistory('temp', v);
     });
 
     listen(DB.hum, val => {
       const v = Number(val);
+      lastRealValues.hum = v;
       setVal('humDisplay', Math.round(v));
       setVal('humSub', v > 85 ? '⚠️ Umidade muito alta' : 'Normal');
       setProgress('humBar', v, v > 85 ? 'red' : '');
-      pushHistory('hum', v);
     });
 
     listen(DB.ire, val => {
       // IRE vem em escala 0–1, converter para 0–100
       const raw = Number(val);
       const v = raw <= 1 ? raw * 100 : raw;
-      setVal('ireDisplay', Math.round(v));
-      updateGauge(v);
-      pushHistory('ire', v);
+      lastRealValues.ire = v;
+      // Só atualiza o display se não estiver em modo teste
+      if (!simMode) {
+        setVal('ireDisplay', Math.round(v));
+        updateGauge(v);
+      }
     });
 
     listen(DB.chuva, val => {
       const v = Number(val);
+      lastRealValues.chuva = v;
       setVal('chuvaDisplay', v.toFixed(1));
       setVal('chuvaSub', 'ESP32 · dado direto');
       setProgress('chuvaBar', Math.min(v / 60 * 100, 100), 'amber');
-      pushHistory('chuva', v);
     });
 
     listen(DB.risco, val => {
-      updateRisk(String(val).toUpperCase());
+      lastRealValues.risco = String(val).toUpperCase();
+      if (!simMode) updateRisk(lastRealValues.risco);
     });
 
     listen(DB.modoAuto, val => {
@@ -1053,7 +1095,7 @@ window.runDiag = async function() {
     }
     walk(data, '', 0);
     lines.push('\n─────────────────────────────────');
-    lines.push('📋 Cole este resultado para o Claude mapear os caminhos certos.');
+    lines.push('📋 Dados para debugação e testes.');
     out.textContent = lines.join('\n');
   } catch(e) {
     out.textContent = '❌ Erro ao ler banco:\n' + e.message + '\n\nPossíveis causas:\n• Regras do banco bloqueando leitura\n• databaseURL incorreta na firebaseConfig';
@@ -1168,11 +1210,112 @@ window.diagListeners = function() {
   diagLog('Se um caminho mostrar "não encontrado" no console, ajuste as constantes em DB{}.');
 };
 
+// ════════════════════════════════════════════════
+//  MODO TESTE — controle
+// ════════════════════════════════════════════════
+let simMode = false;
+const lastRealValues = { ire: null, risco: null, temp: null, hum: null, chuva: null };
+
+// Ativa modo teste: desacopla o gauge/badge do Firebase
+function enterSimMode() {
+  if (simMode) return;
+  simMode = true;
+  document.getElementById('simModeBadge').style.display = 'block';
+  const btn = document.getElementById('btnExitSim');
+  if (btn) btn.style.display = 'flex';
+  diagLog('Modo teste ativado — dados reais pausados no gauge/badge.', 'warn');
+}
+
+// Restaura tudo para os últimos valores reais recebidos do Firebase
+window.diagExitSim = function() {
+  simMode = false;
+  document.getElementById('simModeBadge').style.display = 'none';
+  const btn = document.getElementById('btnExitSim');
+  if (btn) btn.style.display = 'none';
+  // Restaura slider para 0
+  const slider = document.getElementById('ireSlider');
+  const sliderLbl = document.getElementById('sliderLabel');
+  if (slider) slider.value = 0;
+  if (sliderLbl) sliderLbl.textContent = '0';
+  // Restaura display com último valor real
+  if (lastRealValues.ire !== null) {
+    setVal('ireDisplay', Math.round(lastRealValues.ire));
+    updateGauge(lastRealValues.ire);
+  } else {
+    setVal('ireDisplay', '--');
+    updateGauge(0);
+  }
+  if (lastRealValues.risco !== null) {
+    updateRisk(lastRealValues.risco);
+  } else {
+    const badge = document.getElementById('riskBadge');
+    if (badge) { badge.className = 'risk-badge baixo'; badge.textContent = '--'; }
+  }
+  diagLog('Modo teste encerrado — dados reais restaurados.', 'ok');
+};
+
+// Patch simIRE e diagGauge para ativar simMode automaticamente
+const _origSimIRE = window.simIRE;
+window.simIRE = function(val) { enterSimMode(); _origSimIRE(val); };
+
+const _origDiagGauge = window.diagGauge;
+window.diagGauge = function() { enterSimMode(); _origDiagGauge(); };
+
+// ════════════════════════════════════════════════
+//  INTERVALO DE CAPTURA DO GRÁFICO
+// ════════════════════════════════════════════════
+let chartCaptureMs = 60000; // padrão: 1 min
+let chartCaptureTimer = null;
+
+const intervalBtnMap = {
+  15000:   'intBtn15s',
+  30000:   'intBtn30s',
+  60000:   'intBtn1m',
+  300000:  'intBtn5m',
+  600000:  'intBtn10m',
+  1800000: 'intBtn30m',
+};
+
+window.setChartInterval = function(ms) {
+  chartCaptureMs = ms;
+  // Reinicia o timer
+  if (chartCaptureTimer) clearInterval(chartCaptureTimer);
+  chartCaptureTimer = setInterval(captureChartSnapshot, ms);
+  // Atualiza botões
+  Object.entries(intervalBtnMap).forEach(([k, id]) => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.className = Number(k) === ms ? 'btn btn-blue' : 'btn btn-ghost';
+    b.style.cssText = b.style.cssText; // force repaint
+  });
+  // Badge no gráfico
+  const badge = document.getElementById('chartIntervalBadge');
+  const labels = {15000:'15s',30000:'30s',60000:'1 min',300000:'5 min',600000:'10 min',1800000:'30 min'};
+  if (badge) badge.textContent = '⏱ ' + (labels[ms] || (ms/1000)+'s');
+  // Atualiza janela total estimada
+  const windowMin = Math.round(MAX_PTS * ms / 60000);
+  const windowEl = document.getElementById('windowLabel');
+  const ptsEl = document.getElementById('maxPtsLabel');
+  if (windowEl) windowEl.textContent = windowMin >= 60 ? (windowMin/60).toFixed(1)+'h' : windowMin+' min';
+  if (ptsEl) ptsEl.textContent = MAX_PTS;
+  diagLog(`Intervalo do gráfico: ${labels[ms] || ms+'ms'} · janela total ≈ ${windowMin >= 60 ? (windowMin/60).toFixed(1)+'h' : windowMin+' min'} (${MAX_PTS} pontos)`, 'ok');
+};
+
+// Captura snapshot dos últimos valores recebidos do Firebase
+function captureChartSnapshot() {
+  if (lastRealValues.ire    !== null) pushHistory('ire',   lastRealValues.ire);
+  if (lastRealValues.temp   !== null) pushHistory('temp',  lastRealValues.temp);
+  if (lastRealValues.hum    !== null) pushHistory('hum',   lastRealValues.hum);
+  if (lastRealValues.chuva  !== null) pushHistory('chuva', lastRealValues.chuva);
+}
+
 initChart();
 initMap();
 fetchWeather();
 setInterval(fetchWeather, 10 * 60 * 1000); // atualiza clima a cada 10min
 initFirebase();
+// Inicia captura periódica do gráfico (padrão 1 min)
+chartCaptureTimer = setInterval(captureChartSnapshot, chartCaptureMs);
 </script>
 </body>
 </html>
