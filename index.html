@@ -375,6 +375,115 @@ footer a{color:var(--txt2);text-decoration:none}
   .metrics-grid{grid-template-columns:1fr 1fr}
   .metric-val{font-size:1.6rem}
 }
+
+/* ── Stale data banner ── */
+.stale-banner{
+  display:none;
+  background:linear-gradient(90deg,rgba(245,158,11,.15),rgba(245,158,11,.05));
+  border:1px solid rgba(245,158,11,.4);
+  border-radius:10px;padding:10px 16px;
+  margin-bottom:16px;
+  font-size:.82rem;color:#F59E0B;
+  align-items:center;gap:10px;
+}
+.stale-banner.active{display:flex}
+.stale-banner b{font-weight:700}
+
+/* ── Event log ── */
+.event-log-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px;
+  box-shadow:var(--card-shadow);
+  margin-top:20px;
+}
+.event-log-list{
+  list-style:none;max-height:180px;overflow-y:auto;
+  display:flex;flex-direction:column;gap:6px;
+  padding-right:4px;
+}
+.event-log-list::-webkit-scrollbar{width:4px}
+.event-log-list::-webkit-scrollbar-track{background:transparent}
+.event-log-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.event-log-item{
+  display:flex;align-items:flex-start;gap:10px;
+  font-size:.78rem;color:var(--txt2);
+  padding:7px 10px;background:var(--surface2);
+  border-radius:8px;border:1px solid var(--border);
+}
+.event-log-time{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:.75rem;color:var(--txt3);
+  white-space:nowrap;flex-shrink:0;
+  padding-top:1px;
+}
+.event-log-dot{
+  width:8px;height:8px;border-radius:50%;
+  flex-shrink:0;margin-top:3px;
+}
+.event-log-dot.baixo{background:#10B981}
+.event-log-dot.moderado{background:#F59E0B}
+.event-log-dot.alto{background:#EF4444}
+.event-log-dot.critico{background:#FF2D55}
+.event-log-empty{font-size:.78rem;color:var(--txt3);text-align:center;padding:20px 0;font-style:italic}
+
+/* ── Sparkline ── */
+.sparkline-wrap{
+  width:100%;height:28px;margin-top:10px;
+  overflow:hidden;
+}
+.sparkline-svg{width:100%;height:100%;display:block}
+
+/* ── Sound + Notifications + Share btns (header) ── */
+.header-actions{display:flex;align-items:center;gap:8px}
+.action-btn{
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:8px;width:36px;height:36px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:15px;transition:.2s;
+  color:#fff;flex-shrink:0;position:relative;
+}
+.action-btn:hover{background:rgba(255,255,255,.16)}
+.action-btn.active{
+  background:rgba(14,165,233,.25);
+  border-color:rgba(14,165,233,.5);
+}
+.action-btn .tooltip{
+  position:absolute;bottom:-32px;left:50%;transform:translateX(-50%);
+  background:#0B1F35;border:1px solid var(--border);
+  border-radius:6px;padding:4px 8px;font-size:.68rem;
+  white-space:nowrap;color:var(--txt2);pointer-events:none;
+  opacity:0;transition:opacity .15s;z-index:10;
+}
+.action-btn:hover .tooltip{opacity:1}
+
+/* ── Chart export btn ── */
+.chart-export-btn{
+  font-size:.68rem;padding:3px 10px;border:1px solid var(--border);
+  background:transparent;color:var(--txt3);border-radius:6px;
+  cursor:pointer;transition:.18s;font-family:'Inter',sans-serif;
+}
+.chart-export-btn:hover{background:rgba(14,165,233,.1);color:var(--accent);border-color:rgba(14,165,233,.3)}
+
+/* ── Map circle dynamic color ── */
+/* controlled via JS */
+
+/* ── Toast notification ── */
+.toast{
+  position:fixed;bottom:24px;right:24px;z-index:9999;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:14px 18px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  font-size:.82rem;color:var(--txt);
+  display:flex;align-items:center;gap:10px;
+  transform:translateY(80px);opacity:0;
+  transition:all .35s cubic-bezier(.4,0,.2,1);
+  max-width:320px;
+}
+.toast.show{transform:translateY(0);opacity:1}
+.toast-icon{font-size:1.1rem;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -397,12 +506,35 @@ footer a{color:var(--txt2);text-decoration:none}
       <span class="pulse-dot" id="statusDot"></span>
       <span id="statusLabel">Conectando...</span>
     </div>
-    <button class="theme-toggle" id="themeToggle" title="Alternar tema" aria-label="Alternar modo escuro/claro">🌙</button>
+    <div class="header-actions">
+      <button class="action-btn" id="btnNotif" onclick="toggleNotifications()" aria-label="Notificações push">
+        🔔<span class="tooltip">Notificações</span>
+      </button>
+      <button class="action-btn" id="btnSound" onclick="toggleSound()" aria-label="Som de alerta">
+        🔇<span class="tooltip">Som</span>
+      </button>
+      <button class="action-btn" onclick="shareState()" aria-label="Compartilhar estado">
+        🔗<span class="tooltip">Compartilhar</span>
+      </button>
+      <button class="theme-toggle" id="themeToggle" title="Alternar tema" aria-label="Alternar modo escuro/claro">🌙</button>
+    </div>
   </div>
 </header>
 
 <!-- ══════════ MAIN ══════════ -->
 <main class="container">
+
+  <!-- Stale data warning -->
+  <div class="stale-banner" id="staleBanner">
+    <span>⚠️</span>
+    <span>Sensor possivelmente offline — último dado recebido há <b id="staleMinutes">?</b> min. Verifique a conexão do ESP32.</span>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast" id="toast">
+    <span class="toast-icon" id="toastIcon">ℹ️</span>
+    <span id="toastMsg">Mensagem</span>
+  </div>
 
   <!-- Risk + Metrics row -->
   <div class="risk-section fade-in">
@@ -452,6 +584,13 @@ footer a{color:var(--txt2);text-decoration:none}
         animation:sim-blink .9s ease-in-out infinite alternate;
       ">🔬 MODO TESTE ATIVO</div>
       <div class="risk-badge baixo" id="riskBadge">--</div>
+
+      <!-- Sparkline IRE -->
+      <div class="sparkline-wrap" title="Tendência do IRE nas últimas medições">
+        <svg class="sparkline-svg" id="sparklineSvg" viewBox="0 0 200 28" preserveAspectRatio="none">
+          <polyline id="sparklineLine" points="" fill="none" stroke="#0EA5E9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+        </svg>
+      </div>
 
       <div class="alert-banner" id="alertBanner">
         <span class="alert-icon">🚨</span>
@@ -566,12 +705,15 @@ footer a{color:var(--txt2);text-decoration:none}
     <div class="section-card fade-in" style="animation-delay:.35s">
       <div class="section-title" style="justify-content:space-between">
         <span>📊 Histórico das Últimas 12h</span>
-        <span id="chartIntervalBadge" style="
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="chart-export-btn" onclick="exportCSV()" title="Baixar histórico em CSV">⬇ CSV</button>
+          <span id="chartIntervalBadge" style="
           font-family:'Inter',sans-serif;font-size:.68rem;font-weight:500;
           letter-spacing:.04em;text-transform:none;color:var(--accent);
           background:rgba(14,165,233,.1);border:1px solid rgba(14,165,233,.2);
           border-radius:6px;padding:2px 8px;
         ">⏱ 1 min</span>
+        </div>
       </div>
       <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
         <button class="btn btn-ghost" style="flex:none;padding:5px 12px;font-size:.72rem" onclick="setChartMode('ire')" id="btnIRE">IRE</button>
@@ -588,6 +730,17 @@ footer a{color:var(--txt2);text-decoration:none}
     </div>
 
   </div><!-- /full-row -->
+
+  <!-- Event log -->
+  <div class="event-log-card fade-in" style="animation-delay:.4s">
+    <div class="section-title" style="justify-content:space-between;margin-bottom:12px">
+      <span>📋 Histórico de Eventos</span>
+      <button class="chart-export-btn" onclick="clearEventLog()">Limpar</button>
+    </div>
+    <ul class="event-log-list" id="eventLogList">
+      <li class="event-log-empty" id="eventLogEmpty">Aguardando mudanças de risco…</li>
+    </ul>
+  </div>
 
 </main>
 
@@ -670,7 +823,7 @@ footer a{color:var(--txt2);text-decoration:none}
 
 <footer>
   <div>Monitor Inteligente de Enchentes — ESP32 + Firebase + Open-Meteo</div>
-  <div style="margin-top:4px;opacity:.6">Dados atualizados em tempo real · v3.0</div>
+  <div style="margin-top:4px;opacity:.6">Dados atualizados em tempo real · v4.0 — notificações · som · persistência · CSV · sparkline · mapa dinâmico · eventos</div>
 </footer>
 
 <!-- ══════════ SCRIPTS ══════════ -->
@@ -877,10 +1030,7 @@ function setStatus(state, label) {
   if (lbl) lbl.textContent = label;
 }
 
-function updateLastTime() {
-  const el = document.getElementById('lastUpdateTime');
-  if (el) el.textContent = new Date().toLocaleTimeString('pt-BR');
-}
+// updateLastTime is defined below with stale detection logic
 
 // ════════════════════════════════════════════════
 //  GAUGE
@@ -910,11 +1060,13 @@ function updateGauge(ire) {
 //  RISK
 // ════════════════════════════════════════════════
 const riskMap = {
-  'BAIXO':   { cls:'baixo',    label:'🟢 RISCO BAIXO',    alert:false },
-  'MODERADO':{ cls:'moderado', label:'🟡 RISCO MODERADO', alert:false },
-  'ALTO':    { cls:'alto',     label:'🔴 RISCO ALTO',     alert:true, msg:'Atenção! Risco alto de enchente. Monitore pontos críticos.' },
-  'CRITICO': { cls:'critico',  label:'🚨 RISCO CRÍTICO',  alert:true, msg:'EVACUAÇÃO RECOMENDADA — Risco crítico de enchente detectado!' },
+  'BAIXO':   { cls:'baixo',    label:'🟢 RISCO BAIXO',    alert:false, color:'#10B981' },
+  'MODERADO':{ cls:'moderado', label:'🟡 RISCO MODERADO', alert:false, color:'#F59E0B' },
+  'ALTO':    { cls:'alto',     label:'🔴 RISCO ALTO',     alert:true, msg:'Atenção! Risco alto de enchente. Monitore pontos críticos.', color:'#EF4444' },
+  'CRITICO': { cls:'critico',  label:'🚨 RISCO CRÍTICO',  alert:true, msg:'EVACUAÇÃO RECOMENDADA — Risco crítico de enchente detectado!', color:'#FF2D55' },
 };
+
+let lastRiskNivel = null;
 
 function updateRisk(nivel) {
   const info = riskMap[nivel] || riskMap['BAIXO'];
@@ -925,6 +1077,27 @@ function updateRisk(nivel) {
   if (badge)  { badge.className = 'risk-badge ' + info.cls; badge.textContent = info.label; }
   if (banner) banner.classList.toggle('active', !!info.alert);
   if (msg && info.msg) msg.textContent = info.msg;
+
+  // Mapa: cor dinâmica da zona de risco
+  if (window.riskZoneCircle) {
+    const isPulsing = nivel === 'CRITICO';
+    window.riskZoneCircle.setStyle({
+      color: info.color,
+      fillColor: info.color,
+      fillOpacity: isPulsing ? 0.15 : 0.08,
+      weight: isPulsing ? 2.5 : 1.5,
+    });
+  }
+
+  // Mudança de nível → log de evento + notificação
+  if (nivel !== lastRiskNivel && lastRiskNivel !== null) {
+    addEventLog(lastRiskNivel, nivel, info);
+    if (nivel === 'ALTO' || nivel === 'CRITICO') {
+      sendPushNotification(nivel, info.msg || info.label);
+      playAlertSound(nivel);
+    }
+  }
+  lastRiskNivel = nivel;
 }
 
 // ════════════════════════════════════════════════
@@ -942,6 +1115,8 @@ function pushHistory(key, val) {
   if (key === 'ire') {
     labels.push(now);
     if (labels.length > MAX_PTS) labels.shift();
+    updateSparkline();
+    saveHistoryToStorage();
   }
   if (currentMode === key) updateChart();
 }
@@ -1038,11 +1213,11 @@ function initMap() {
     .addTo(map)
     .bindPopup(`<b>${SENSOR_NOME}</b><br>Lat: ${SENSOR_LAT}<br>Lng: ${SENSOR_LNG}`);
 
-  // Risk zone circle (500m)
-  L.circle([SENSOR_LAT, SENSOR_LNG], {
+  // Risk zone circle (500m) — referência global para cor dinâmica
+  window.riskZoneCircle = L.circle([SENSOR_LAT, SENSOR_LNG], {
     radius:500,
-    color:'#EF4444',
-    fillColor:'#EF4444',
+    color:'#10B981',
+    fillColor:'#10B981',
     fillOpacity:.08,
     weight:1.5,
     dashArray:'6 4'
@@ -1290,15 +1465,15 @@ window.setChartInterval = function(ms) {
   });
   // Badge no gráfico
   const badge = document.getElementById('chartIntervalBadge');
-  const labels = {15000:'15s',30000:'30s',60000:'1 min',300000:'5 min',600000:'10 min',1800000:'30 min'};
-  if (badge) badge.textContent = '⏱ ' + (labels[ms] || (ms/1000)+'s');
+  const intervalLabels = {15000:'15s',30000:'30s',60000:'1 min',300000:'5 min',600000:'10 min',1800000:'30 min'};
+  if (badge) badge.textContent = '⏱ ' + (intervalLabels[ms] || (ms/1000)+'s');
   // Atualiza janela total estimada
   const windowMin = Math.round(MAX_PTS * ms / 60000);
   const windowEl = document.getElementById('windowLabel');
   const ptsEl = document.getElementById('maxPtsLabel');
   if (windowEl) windowEl.textContent = windowMin >= 60 ? (windowMin/60).toFixed(1)+'h' : windowMin+' min';
   if (ptsEl) ptsEl.textContent = MAX_PTS;
-  diagLog(`Intervalo do gráfico: ${labels[ms] || ms+'ms'} · janela total ≈ ${windowMin >= 60 ? (windowMin/60).toFixed(1)+'h' : windowMin+' min'} (${MAX_PTS} pontos)`, 'ok');
+  diagLog(`Intervalo do gráfico: ${intervalLabels[ms] || ms+'ms'} · janela total ≈ ${windowMin >= 60 ? (windowMin/60).toFixed(1)+'h' : windowMin+' min'} (${MAX_PTS} pontos)`, 'ok');
 };
 
 // Captura snapshot dos últimos valores recebidos do Firebase
@@ -1316,6 +1491,279 @@ setInterval(fetchWeather, 10 * 60 * 1000); // atualiza clima a cada 10min
 initFirebase();
 // Inicia captura periódica do gráfico (padrão 1 min)
 chartCaptureTimer = setInterval(captureChartSnapshot, chartCaptureMs);
+
+// ════════════════════════════════════════════════
+//  1. PERSISTÊNCIA DO HISTÓRICO — localStorage
+// ════════════════════════════════════════════════
+const LS_KEY = 'monitor_enchentes_history_v1';
+const LS_LOG_KEY = 'monitor_enchentes_eventlog_v1';
+
+function saveHistoryToStorage() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ history, labels, ts: Date.now() }));
+  } catch(e) { /* sem espaço? ignora */ }
+}
+
+function loadHistoryFromStorage() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    // Só restaura se tiver menos de 24h
+    if (Date.now() - saved.ts > 86400000) return;
+    if (saved.history?.ire)   history.ire   = saved.history.ire;
+    if (saved.history?.temp)  history.temp  = saved.history.temp;
+    if (saved.history?.hum)   history.hum   = saved.history.hum;
+    if (saved.history?.chuva) history.chuva = saved.history.chuva;
+    if (saved.labels) labels.push(...saved.labels);
+    updateChart();
+    updateSparkline();
+    diagLog(`Histórico restaurado do localStorage (${labels.length} pontos)`, 'ok');
+  } catch(e) {}
+}
+loadHistoryFromStorage();
+
+// ════════════════════════════════════════════════
+//  2. INDICADOR DE DADO DESATUALIZADO (stale)
+// ════════════════════════════════════════════════
+let lastFirebaseTs = Date.now();
+const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutos
+
+function updateLastTime() {
+  const el = document.getElementById('lastUpdateTime');
+  if (el) el.textContent = new Date().toLocaleTimeString('pt-BR');
+  lastFirebaseTs = Date.now();
+  document.getElementById('staleBanner')?.classList.remove('active');
+}
+
+setInterval(() => {
+  const ago = Date.now() - lastFirebaseTs;
+  if (ago > STALE_THRESHOLD_MS) {
+    const mins = Math.floor(ago / 60000);
+    const el = document.getElementById('staleMinutes');
+    if (el) el.textContent = mins;
+    document.getElementById('staleBanner')?.classList.add('active');
+    setStatus('warn', 'Sem dados recentes');
+  }
+}, 30000);
+
+// ════════════════════════════════════════════════
+//  3. NOTIFICAÇÕES PUSH DO NAVEGADOR
+// ════════════════════════════════════════════════
+let notifEnabled = false;
+
+window.toggleNotifications = async function() {
+  if (notifEnabled) {
+    notifEnabled = false;
+    document.getElementById('btnNotif').classList.remove('active');
+    document.getElementById('btnNotif').textContent = '🔔';
+    showToast('ℹ️', 'Notificações desativadas');
+    return;
+  }
+  if (!('Notification' in window)) {
+    showToast('❌', 'Seu navegador não suporta notificações');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    notifEnabled = true;
+    const btn = document.getElementById('btnNotif');
+    btn.classList.add('active');
+    btn.textContent = '🔔';
+    showToast('✅', 'Notificações ativadas para risco ALTO/CRÍTICO');
+  } else {
+    showToast('❌', 'Permissão de notificação negada pelo navegador');
+  }
+};
+
+function sendPushNotification(nivel, msg) {
+  if (!notifEnabled || Notification.permission !== 'granted') return;
+  new Notification('⚠️ Monitor de Enchentes', {
+    body: msg || `Risco mudou para ${nivel}`,
+    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🌊</text></svg>',
+    tag: 'flood-alert',
+    requireInteraction: nivel === 'CRITICO'
+  });
+}
+
+// ════════════════════════════════════════════════
+//  4. SOM DE ALERTA (Web Audio API)
+// ════════════════════════════════════════════════
+let soundEnabled = false;
+let audioCtx = null;
+
+window.toggleSound = function() {
+  soundEnabled = !soundEnabled;
+  const btn = document.getElementById('btnSound');
+  btn.textContent = soundEnabled ? '🔊' : '🔇';
+  btn.classList.toggle('active', soundEnabled);
+  showToast(soundEnabled ? '🔊' : '🔇', soundEnabled ? 'Som de alerta ativado' : 'Som desativado');
+  if (soundEnabled) { playAlertSound('TEST'); } // teste de som ao ativar
+};
+
+function playAlertSound(nivel) {
+  if (!soundEnabled) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const isCritico = nivel === 'CRITICO';
+    const beeps = isCritico ? 3 : 1;
+    for (let i = 0; i < beeps; i++) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.frequency.value = isCritico ? 880 : 660;
+      osc.type = 'sine';
+      const startAt = audioCtx.currentTime + i * 0.35;
+      gain.gain.setValueAtTime(0.3, startAt);
+      gain.gain.exponentialRampToValueAtTime(0.001, startAt + 0.25);
+      osc.start(startAt);
+      osc.stop(startAt + 0.25);
+    }
+  } catch(e) { console.warn('AudioContext error', e); }
+}
+
+// ════════════════════════════════════════════════
+//  5. EXPORTAR CSV DO HISTÓRICO
+// ════════════════════════════════════════════════
+window.exportCSV = function() {
+  if (labels.length === 0) { showToast('⚠️', 'Nenhum dado para exportar ainda'); return; }
+  const rows = [['Horario','IRE','Temperatura_C','Umidade_pct','Chuva_mm']];
+  const len = labels.length;
+  for (let i = 0; i < len; i++) {
+    rows.push([
+      labels[i] || '',
+      history.ire[i]  ?? '',
+      history.temp[i] ?? '',
+      history.hum[i]  ?? '',
+      history.chuva[i]?? '',
+    ]);
+  }
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const now = new Date().toISOString().slice(0,16).replace('T','_').replace(':','-');
+  a.download = `monitor_enchentes_${now}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅', `${len} pontos exportados`);
+};
+
+// ════════════════════════════════════════════════
+//  6. SPARKLINE NO GAUGE
+// ════════════════════════════════════════════════
+function updateSparkline() {
+  const data = history.ire;
+  if (data.length < 2) return;
+  const svg = document.getElementById('sparklineSvg');
+  const line = document.getElementById('sparklineLine');
+  if (!svg || !line) return;
+  const W = 200, H = 28, pad = 2;
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => {
+    const x = pad + (i / (data.length - 1)) * (W - pad * 2);
+    const y = H - pad - ((v - min) / range) * (H - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  line.setAttribute('points', pts);
+  // Cor baseada no último valor
+  const last = data[data.length - 1];
+  const color = last < 35 ? '#10B981' : last < 60 ? '#F59E0B' : last < 80 ? '#EF4444' : '#FF2D55';
+  line.setAttribute('stroke', color);
+}
+
+// ════════════════════════════════════════════════
+//  7. HISTÓRICO DE EVENTOS (log textual)
+// ════════════════════════════════════════════════
+let eventLog = [];
+try {
+  const saved = localStorage.getItem(LS_LOG_KEY);
+  if (saved) eventLog = JSON.parse(saved);
+  renderEventLog();
+} catch(e) {}
+
+function addEventLog(fromNivel, toNivel, info) {
+  const ts = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+  const entry = {
+    ts,
+    from: fromNivel,
+    to: toNivel,
+    cls: info.cls,
+    msg: `Risco mudou de ${fromNivel} → ${toNivel}`
+  };
+  eventLog.unshift(entry);
+  if (eventLog.length > 50) eventLog.pop();
+  try { localStorage.setItem(LS_LOG_KEY, JSON.stringify(eventLog)); } catch(e) {}
+  renderEventLog();
+}
+
+function renderEventLog() {
+  const list = document.getElementById('eventLogList');
+  const empty = document.getElementById('eventLogEmpty');
+  if (!list) return;
+  if (eventLog.length === 0) {
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  // Remove previous items (keep empty placeholder)
+  list.querySelectorAll('.event-log-item').forEach(el => el.remove());
+  eventLog.forEach(e => {
+    const li = document.createElement('li');
+    li.className = 'event-log-item';
+    li.innerHTML = `
+      <span class="event-log-time">${e.ts}</span>
+      <span class="event-log-dot ${e.cls}"></span>
+      <span>${e.msg}</span>
+    `;
+    list.appendChild(li);
+  });
+}
+
+window.clearEventLog = function() {
+  eventLog = [];
+  try { localStorage.removeItem(LS_LOG_KEY); } catch(e) {}
+  renderEventLog();
+  const empty = document.getElementById('eventLogEmpty');
+  if (empty) empty.style.display = 'block';
+};
+
+// ════════════════════════════════════════════════
+//  8. COMPARTILHAR ESTADO ATUAL
+// ════════════════════════════════════════════════
+window.shareState = function() {
+  const ire   = lastRealValues.ire   !== null ? Math.round(lastRealValues.ire) : '--';
+  const temp  = lastRealValues.temp  !== null ? lastRealValues.temp.toFixed(1) : '--';
+  const hum   = lastRealValues.hum   !== null ? Math.round(lastRealValues.hum) : '--';
+  const chuva = lastRealValues.chuva !== null ? lastRealValues.chuva.toFixed(1) : '--';
+  const risco = lastRiskNivel || '--';
+  const params = new URLSearchParams({ ire, temp, hum, chuva, risco,
+    ts: new Date().toLocaleTimeString('pt-BR') });
+  const url = `${location.origin}${location.pathname}?${params}`;
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('📋', 'Link copiado com estado atual!');
+  }).catch(() => {
+    prompt('Copie o link:', url);
+  });
+};
+
+// ════════════════════════════════════════════════
+//  TOAST HELPER
+// ════════════════════════════════════════════════
+let toastTimer = null;
+function showToast(icon, msg, durationMs = 3500) {
+  const toast = document.getElementById('toast');
+  const toastIcon = document.getElementById('toastIcon');
+  const toastMsg = document.getElementById('toastMsg');
+  if (!toast) return;
+  toastIcon.textContent = icon;
+  toastMsg.textContent = msg;
+  toast.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), durationMs);
+}
 </script>
 </body>
 </html>
