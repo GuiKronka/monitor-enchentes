@@ -510,16 +510,21 @@ details[open] .panel-summary{border-radius:10px 10px 0 0;border-bottom-color:tra
   border-radius:0 0 10px 10px;
   padding:16px;
 }
-/* log output: fundo escuro fixo (código/terminal) mas borda e scroll temáticos */
+/* log output — tema-aware */
 .diag-log{
-  background:#050E1A;
+  background:var(--surface2);
   border:1px solid var(--border);
   border-radius:8px;
   padding:14px;font-size:.76rem;
-  color:#7BA8C8;font-family:monospace;
+  color:var(--txt2);font-family:monospace;
   white-space:pre-wrap;
   max-height:360px;overflow-y:auto;margin:0;
   min-height:60px;
+}
+/* no escuro fica mais contrastado como terminal */
+[data-theme="dark"] .diag-log{
+  background:#050E1A;
+  color:#7BA8C8;
 }
 </style>
 </head>
@@ -704,6 +709,12 @@ details[open] .panel-summary{border-radius:10px 10px 0 0;border-bottom-color:tra
             <button class="btn btn-on" onclick="autoOn()">AUTO ON</button>
             <button class="btn btn-off" onclick="autoOff()">AUTO OFF</button>
           </div>
+          <!-- Status do modo auto baseado em temperatura -->
+          <div id="autoTempStatus" style="
+            margin-top:8px;font-size:.72rem;color:var(--txt3);
+            background:var(--surface2);border:1px solid var(--border);
+            border-radius:6px;padding:6px 10px;
+          ">⚙️ Configure o limite em <b>Configurações</b></div>
         </div>
         <div class="ctrl-group">
           <div class="ctrl-label">🔌 Relé da Bomba</div>
@@ -1037,6 +1048,8 @@ function initFirebase() {
       setVal('tempDisplay', v.toFixed(1));
       setVal('tempSub', v > 35 ? '⚠️ Temperatura alta' : v < 10 ? '❄️ Temperatura baixa' : 'Normal');
       setProgress('tempBar', Math.min(v / 50 * 100, 100), v > 35 ? 'red' : 'green');
+      // Modo automático web-side: controla relé por temperatura
+      checkAutoRelay(v);
     });
 
     listen(DB.hum, val => {
@@ -1073,8 +1086,10 @@ function initFirebase() {
     });
 
     listen(DB.modoAuto, val => {
-      const on = val === true || val === 'true' || val === 1;
-      setVal('modoAutoDisplay', on ? '✅ ATIVO' : '⏸ INATIVO');
+      autoModeActive = val === true || val === 'true' || val === 1;
+      setVal('modoAutoDisplay', autoModeActive ? '✅ ATIVO' : '⏸ INATIVO');
+      // Se ligou o modo auto, aplica imediatamente com a temp atual
+      if (autoModeActive && lastRealValues.temp !== null) checkAutoRelay(lastRealValues.temp);
     });
 
     listen(DB.rele, val => {
@@ -1093,6 +1108,7 @@ function initFirebase() {
     listen(DB.tempLimite, val => {
       const v = Number(val);
       if (!isNaN(v)) {
+        tempLimiteLocal = v;   // sincroniza a variável local usada em checkAutoRelay
         setVal('tempLimiteFB', `${v} °C`);
         const inp = document.getElementById('tempLimiteInput');
         const sld = document.getElementById('tempLimiteSlider');
@@ -1411,13 +1427,37 @@ window.runDiag = async function() {
 // ════════════════════════════════════════════════
 //  TEMPERATURA LIMITE — modo automático
 // ════════════════════════════════════════════════
+let autoModeActive = false;   // rastreia estado atual do modo auto
+let tempLimiteLocal = 30;     // valor do limiar em uso
+
+// Checa se deve ligar/desligar o relé baseado em temperatura
+function checkAutoRelay(tempAtual) {
+  const statusEl = document.getElementById('autoTempStatus');
+  if (!autoModeActive) {
+    if (statusEl) statusEl.innerHTML = `⏸ Modo auto <b>inativo</b> — controle manual`;
+    return;
+  }
+  if (!db) return;
+  const deveriaLigar = tempAtual >= tempLimiteLocal;
+  set(ref(db, DB.rele), deveriaLigar);
+  set(ref(db, '/rele'), deveriaLigar);
+  if (statusEl) {
+    statusEl.innerHTML = deveriaLigar
+      ? `⚡ Auto: <b style="color:#10B981">LIGADO</b> — ${tempAtual.toFixed(1)}°C ≥ ${tempLimiteLocal}°C`
+      : `○ Auto: <b style="color:var(--txt3)">DESLIGADO</b> — ${tempAtual.toFixed(1)}°C &lt; ${tempLimiteLocal}°C`;
+  }
+  console.log(`[AutoMode] Temp=${tempAtual}°C, Limite=${tempLimiteLocal}°C → ${deveriaLigar ? 'LIGAR' : 'DESLIGAR'}`);
+}
+
 window.syncTempLimiteSlider = function(val) {
   const s = document.getElementById('tempLimiteSlider');
   if (s) s.value = val;
+  tempLimiteLocal = parseFloat(val) || 30;
 };
 window.syncTempLimiteInput = function(val) {
   const i = document.getElementById('tempLimiteInput');
   if (i) i.value = val;
+  tempLimiteLocal = parseFloat(val) || 30;
 };
 window.salvarTempLimite = function() {
   if (!db) { showToast('❌','Firebase não conectado'); return; }
@@ -1426,11 +1466,14 @@ window.salvarTempLimite = function() {
     showToast('❌','Valor inválido — use entre 0 e 60 °C');
     return;
   }
+  tempLimiteLocal = v;
   set(ref(db, DB.tempLimite), v)
     .then(() => {
       setVal('tempLimiteFB', `${v} °C`);
-      showToast('💾', `Temperatura limite salva: ${v} °C`);
+      showToast('💾', `Temperatura limite: ${v} °C. Modo auto reagirá a partir deste valor.`);
       diagLog(`Temperatura limite salva: ${v} °C → ${DB.tempLimite}`, 'ok');
+      // Aplica imediatamente se auto mode ativo
+      if (lastRealValues.temp !== null) checkAutoRelay(lastRealValues.temp);
     })
     .catch(e => showToast('❌', 'Erro ao salvar: ' + e.message));
 };
