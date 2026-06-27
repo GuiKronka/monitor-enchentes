@@ -198,6 +198,8 @@ body{
   display:grid;
   grid-template-columns:repeat(2,1fr);
   gap:12px;flex:1;
+  /* garante que os cards não somem atrás do gauge durante animações */
+  isolation:isolate;
 }
 .metric-card{
   background:var(--surface);
@@ -207,6 +209,8 @@ body{
   box-shadow:var(--card-shadow);
   transition:.25s;
   position:relative;overflow:hidden;
+  /* z-index explícito evita sobreposição por contexto de empilhamento do gauge */
+  z-index:1;
 }
 .metric-card:hover{transform:translateY(-2px);border-color:rgba(14,165,233,.35)}
 .metric-card::after{
@@ -484,6 +488,39 @@ footer a{color:var(--txt2);text-decoration:none}
 }
 .toast.show{transform:translateY(0);opacity:1}
 .toast-icon{font-size:1.1rem;flex-shrink:0}
+
+/* ── Collapsible panels (settings + diag) — tema-aware ── */
+.panel-wrap{margin-bottom:16px}
+.panel-summary{
+  cursor:pointer;font-size:.78rem;color:var(--txt2);
+  list-style:none;display:flex;align-items:center;gap:8px;
+  padding:10px 16px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:10px;user-select:none;
+  transition:background .2s,border-color .2s;
+}
+.panel-summary:hover{border-color:rgba(14,165,233,.4);background:var(--surface2)}
+details[open] .panel-summary{border-radius:10px 10px 0 0;border-bottom-color:transparent}
+.panel-summary-meta{margin-left:auto;font-size:.7rem;color:var(--txt3)}
+.panel-body{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-top:none;
+  border-radius:0 0 10px 10px;
+  padding:16px;
+}
+/* log output: fundo escuro fixo (código/terminal) mas borda e scroll temáticos */
+.diag-log{
+  background:#050E1A;
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:14px;font-size:.76rem;
+  color:#7BA8C8;font-family:monospace;
+  white-space:pre-wrap;
+  max-height:360px;overflow-y:auto;margin:0;
+  min-height:60px;
+}
 </style>
 </head>
 <body>
@@ -744,25 +781,105 @@ footer a{color:var(--txt2);text-decoration:none}
 
 </main>
 
+<!-- ══════════ SETTINGS PANEL ══════════ -->
+<div class="container" style="margin-top:0;padding-top:0;padding-bottom:0">
+  <details id="settingsDetails" class="panel-wrap">
+    <summary class="panel-summary">
+      <span>⚙️</span>
+      <span style="font-weight:600">Configurações</span>
+      <span class="panel-summary-meta">Temperatura · Coordenadas · Gráfico</span>
+    </summary>
+    <div class="panel-body">
+
+      <!-- Temperatura limite do modo automático -->
+      <div style="margin-bottom:20px">
+        <div class="section-title" style="margin-bottom:10px">🌡️ Temperatura Limite — Modo Automático</div>
+        <p style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">
+          Quando o modo automático está ativo, o relé liga se a temperatura ultrapassar este valor.
+          Salvo em <code style="background:rgba(14,165,233,.1);border-radius:4px;padding:2px 6px;font-size:.75rem">/configuracoes/tempLimite</code> no Firebase.
+        </p>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <input type="number" id="tempLimiteInput" min="0" max="60" step="0.5" value="30"
+            oninput="syncTempLimiteSlider(this.value)"
+            style="width:90px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);
+            background:var(--surface2);color:var(--txt);font-family:'Barlow Condensed',sans-serif;
+            font-size:1.3rem;font-weight:700;text-align:center">
+          <span style="color:var(--txt3);font-size:.9rem">°C</span>
+          <input type="range" id="tempLimiteSlider" min="0" max="60" step="0.5" value="30"
+            style="flex:1;min-width:120px;accent-color:#0EA5E9"
+            oninput="syncTempLimiteInput(this.value)">
+          <button class="btn btn-blue" style="flex:none;padding:8px 18px" onclick="salvarTempLimite()">💾 Salvar no Firebase</button>
+        </div>
+        <div style="font-size:.73rem;color:var(--txt3);margin-top:8px">
+          Atual no Firebase: <span id="tempLimiteFB" style="color:var(--accent);font-weight:600">carregando…</span>
+        </div>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+
+      <!-- Coordenadas -->
+      <div style="margin-bottom:20px">
+        <div class="section-title" style="margin-bottom:10px">📍 Coordenadas do Sensor</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <div style="font-size:.7rem;color:var(--txt3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">Latitude</div>
+            <input type="number" id="inputLat" step="any" placeholder="-23.574172"
+              style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);
+              background:var(--surface2);color:var(--txt);font-size:.9rem">
+          </div>
+          <div>
+            <div style="font-size:.7rem;color:var(--txt3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">Longitude</div>
+            <input type="number" id="inputLng" step="any" placeholder="-46.801305"
+              style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);
+              background:var(--surface2);color:var(--txt);font-size:.9rem">
+          </div>
+          <div>
+            <div style="font-size:.7rem;color:var(--txt3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">Nome do Sensor</div>
+            <input type="text" id="inputNome" placeholder="Sensor Principal"
+              style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);
+              background:var(--surface2);color:var(--txt);font-size:.9rem">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-blue" style="flex:none;padding:7px 14px;font-size:.78rem" onclick="applyCoords()">✅ Aplicar ao Mapa</button>
+          <button class="btn btn-ghost" style="flex:none;padding:7px 14px;font-size:.78rem" onclick="pasteFromClipboard()">📋 Colar do Maps</button>
+          <button class="btn btn-ghost" style="flex:none;padding:7px 14px;font-size:.78rem" onclick="resetCoords()">↩️ Restaurar padrão</button>
+          <span style="font-size:.72rem;color:var(--accent)">Atual: <span id="coordCurrentVal">--</span></span>
+        </div>
+        <div style="font-size:.7rem;color:var(--txt3);margin-top:6px">💡 Cole "lat, lng" copiado do Google Maps · coordenadas salvas no navegador</div>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+
+      <!-- Intervalo do gráfico -->
+      <div>
+        <div class="section-title" style="margin-bottom:10px">⏱️ Intervalo de Captura do Gráfico</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:.78rem;color:var(--txt2)">Amostra a cada:</span>
+          <button id="intBtn15s"  class="btn btn-ghost" style="padding:5px 10px;font-size:.72rem;flex:none" onclick="setChartInterval(15000)">15s</button>
+          <button id="intBtn30s"  class="btn btn-ghost" style="padding:5px 10px;font-size:.72rem;flex:none" onclick="setChartInterval(30000)">30s</button>
+          <button id="intBtn1m"   class="btn btn-blue"  style="padding:5px 10px;font-size:.72rem;flex:none" onclick="setChartInterval(60000)">1 min</button>
+          <button id="intBtn5m"   class="btn btn-ghost" style="padding:5px 10px;font-size:.72rem;flex:none" onclick="setChartInterval(300000)">5 min</button>
+          <button id="intBtn10m"  class="btn btn-ghost" style="padding:5px 10px;font-size:.72rem;flex:none" onclick="setChartInterval(600000)">10 min</button>
+          <button id="intBtn30m"  class="btn btn-ghost" style="padding:5px 10px;font-size:.72rem;flex:none" onclick="setChartInterval(1800000)">30 min</button>
+          <span style="font-size:.72rem;color:var(--txt3)">Pontos: <span id="maxPtsLabel">24</span> · janela: <span id="windowLabel">24 min</span></span>
+        </div>
+      </div>
+
+    </div>
+  </details>
+</div>
+
 <!-- ══════════ DIAGNOSTIC PANEL ══════════ -->
 <div class="container" style="margin-top:0;padding-top:0">
-  <details id="diagDetails" style="margin-bottom:24px">
-    <summary style="
-      cursor:pointer;font-size:.78rem;color:var(--txt3);
-      list-style:none;display:flex;align-items:center;gap:8px;
-      padding:10px 16px;background:var(--surface);border:1px solid var(--border);
-      border-radius:10px;user-select:none;
-    ">
+  <details id="diagDetails" class="panel-wrap">
+    <summary class="panel-summary">
       <span>🔧</span>
-      <span>Painel de Diagnóstico — clique para expandir</span>
-      <span style="margin-left:auto;font-size:.7rem;opacity:.6">Firebase · Gauge · Clima · Listeners</span>
+      <span style="font-weight:600">Diagnóstico</span>
+      <span class="panel-summary-meta">Firebase · Gauge · Clima · Listeners</span>
     </summary>
-    <div style="
-      background:var(--surface);border:1px solid var(--border);
-      border-top:none;border-radius:0 0 10px 10px;padding:16px;
-    ">
+    <div class="panel-body">
 
-      <!-- Tabs de diagnóstico -->
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
         <button class="btn btn-blue"   style="flex:none;padding:6px 14px;font-size:.75rem" onclick="runDiag()">🔍 Firebase: Escanear banco</button>
         <button class="btn btn-ghost"  style="flex:none;padding:6px 14px;font-size:.75rem" onclick="diagGauge()">🎯 Testar Gauge</button>
@@ -772,62 +889,9 @@ footer a{color:var(--txt2);text-decoration:none}
         <button class="btn btn-off" id="btnExitSim" style="flex:none;padding:6px 14px;font-size:.75rem;display:none" onclick="diagExitSim()">↩️ Sair do modo teste</button>
       </div>
 
-      <!-- Configurador de intervalo do gráfico -->
-      <div style="margin-bottom:14px;padding:12px;background:#07111f;border:1px solid rgba(245,158,11,.25);border-radius:8px">
-        <div style="font-size:.72rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">⏱️ Intervalo de captura do gráfico</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-size:.75rem;color:var(--txt2)">Amostra a cada:</span>
-          <div style="display:flex;gap:5px;flex-wrap:wrap" id="intervalBtns">
-            <button class="btn btn-ghost" id="intBtn15s"  style="padding:4px 10px;font-size:.72rem" onclick="setChartInterval(15000)">15s</button>
-            <button class="btn btn-ghost" id="intBtn30s"  style="padding:4px 10px;font-size:.72rem" onclick="setChartInterval(30000)">30s</button>
-            <button class="btn btn-blue"  id="intBtn1m"   style="padding:4px 10px;font-size:.72rem" onclick="setChartInterval(60000)">1 min</button>
-            <button class="btn btn-ghost" id="intBtn5m"   style="padding:4px 10px;font-size:.72rem" onclick="setChartInterval(300000)">5 min</button>
-            <button class="btn btn-ghost" id="intBtn10m"  style="padding:4px 10px;font-size:.72rem" onclick="setChartInterval(600000)">10 min</button>
-            <button class="btn btn-ghost" id="intBtn30m"  style="padding:4px 10px;font-size:.72rem" onclick="setChartInterval(1800000)">30 min</button>
-          </div>
-          <span style="font-size:.72rem;color:var(--txt3)">Pontos: <b id="maxPtsLabel" style="color:var(--txt2)">24</b> · janela: <b id="windowLabel" style="color:var(--txt2)">24 min</b></span>
-        </div>
-      </div>
-
-      <!-- Simulador de IRE (teste do gauge sem Firebase) -->
-      <!-- Configurador de coordenadas do sensor -->
-      <div style="margin-bottom:14px;padding:12px;background:#07111f;border:1px solid rgba(14,165,233,.3);border-radius:8px">
-        <div style="font-size:.72rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">📍 Coordenadas do Sensor</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px" id="coordInputGrid">
-          <div>
-            <div style="font-size:.68rem;color:var(--txt3);margin-bottom:4px">Latitude</div>
-            <input type="number" id="inputLat" step="0.000001" placeholder="-23.550520"
-              style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);
-              border-radius:7px;color:var(--txt);font-size:.8rem;font-family:'Inter',sans-serif;outline:none">
-          </div>
-          <div>
-            <div style="font-size:.68rem;color:var(--txt3);margin-bottom:4px">Longitude</div>
-            <input type="number" id="inputLng" step="0.000001" placeholder="-46.633308"
-              style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);
-              border-radius:7px;color:var(--txt);font-size:.8rem;font-family:'Inter',sans-serif;outline:none">
-          </div>
-          <div>
-            <div style="font-size:.68rem;color:var(--txt3);margin-bottom:4px">Nome do Sensor</div>
-            <input type="text" id="inputNome" placeholder="Sensor Principal"
-              style="width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);
-              border-radius:7px;color:var(--txt);font-size:.8rem;font-family:'Inter',sans-serif;outline:none">
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-blue" style="flex:none;padding:6px 16px;font-size:.75rem" onclick="applyCoords()">✅ Aplicar ao Mapa</button>
-          <button class="btn btn-ghost" style="flex:none;padding:6px 14px;font-size:.75rem" onclick="pasteFromClipboard()">📋 Colar do Maps</button>
-          <button class="btn btn-ghost" style="flex:none;padding:6px 14px;font-size:.75rem" onclick="resetCoords()">↩️ Restaurar padrão</button>
-          <span style="font-size:.7rem;color:var(--txt3)" id="coordCurrentLabel">
-            Atual: <b style="color:var(--accent)" id="coordCurrentVal">carregando…</b>
-          </span>
-        </div>
-        <div style="margin-top:8px;font-size:.68rem;color:var(--txt3);opacity:.8">
-          💡 Cole "lat, lng" copiado do Google Maps · coordenadas salvas no navegador
-        </div>
-      </div>
-
       <!-- Simulador IRE -->
-      <div style="margin-bottom:14px;padding:12px;background:#07111f;border:1px solid var(--border);border-radius:8px">
+      <div style="margin-bottom:14px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:.72rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🔬 Simulador de IRE (modo teste)</div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <input type="range" id="ireSlider" min="0" max="100" value="0"
             style="flex:1;min-width:120px;accent-color:#0EA5E9"
@@ -842,13 +906,7 @@ footer a{color:var(--txt2);text-decoration:none}
         </div>
       </div>
 
-      <!-- Output de log -->
-      <pre id="diagOutput" style="
-        background:#07111f;border:1px solid var(--border);border-radius:8px;
-        padding:14px;font-size:.76rem;color:#7BA8C8;font-family:monospace;
-        white-space:pre-wrap;max-height:360px;overflow-y:auto;margin:0;
-        min-height:60px;
-      ">Clique num botão acima para iniciar o diagnóstico...</pre>
+      <pre id="diagOutput" class="diag-log">Clique num botão acima para iniciar o diagnóstico...</pre>
 
       <div style="margin-top:10px;font-size:.7rem;color:var(--txt3);opacity:.7">
         💡 Dica: abra o Console do navegador (F12) para ver logs detalhados dos listeners Firebase em tempo real.
@@ -856,6 +914,7 @@ footer a{color:var(--txt2);text-decoration:none}
     </div>
   </details>
 </div>
+
 
 <footer>
   <div>Monitor Inteligente de Enchentes — ESP32 + Firebase + Open-Meteo</div>
@@ -910,9 +969,10 @@ const DB = {
   chuva:      "/dados/chuvaPrevista",
   ire:        "/dados/ire",           // escala 0–1
   risco:      "/dados/risco",         // "BAIXO" | "MODERADO" | "ALTO" | "CRITICO"
-  estadoRele: "/dados/estadoRele",    // "Ligado" | "Desligado"
+  estadoRele: "/dados/estadoRele",    // "Ligado" | "Desligado" — estado real do hardware
   modoAuto:   "/controle/automatico",
   rele:       "/controle/rele",
+  tempLimite: "/configuracoes/tempLimite", // limiar de temperatura para modo auto
 };
 
 // ════════════════════════════════════════════════
@@ -1022,10 +1082,22 @@ function initFirebase() {
       setVal('releDisplay', on ? '⚡ LIGADO' : '○ DESLIGADO');
     });
 
-    // estadoRele como texto (backup do /dados)
+    // estadoRele: ESP32 escreve aqui o estado REAL do relé após aplicar a lógica
+    // sempre atualiza (sem condição) — fonte de verdade do hardware
     listen(DB.estadoRele, val => {
-      if (document.getElementById('releDisplay').textContent === '--') {
-        setVal('releDisplay', String(val));
+      const on = val === 'Ligado' || val === true || val === 1;
+      setVal('releDisplay', on ? '⚡ LIGADO' : '○ DESLIGADO');
+    });
+
+    // Temperatura limite — lê do Firebase para sincronizar o input na tela
+    listen(DB.tempLimite, val => {
+      const v = Number(val);
+      if (!isNaN(v)) {
+        setVal('tempLimiteFB', `${v} °C`);
+        const inp = document.getElementById('tempLimiteInput');
+        const sld = document.getElementById('tempLimiteSlider');
+        if (inp) inp.value = v;
+        if (sld) sld.value = v;
       }
     });
 
@@ -1052,10 +1124,18 @@ function listen(path, cb) {
 }
 
 // Expose to window for button onclick
-window.autoOn  = () => set(ref(db, DB.modoAuto), true);
-window.autoOff = () => set(ref(db, DB.modoAuto), false);
-window.ligarRele    = () => set(ref(db, DB.rele), true);
-window.desligarRele = () => set(ref(db, DB.rele), false);
+window.autoOn  = () => { set(ref(db, DB.modoAuto), true);  showToast('🤖','Modo automático ativado'); };
+window.autoOff = () => { set(ref(db, DB.modoAuto), false); showToast('⏸','Modo automático desativado'); };
+window.ligarRele    = () => {
+  set(ref(db, DB.rele), true);
+  set(ref(db, '/rele'), true);   // cobre ambos os caminhos possíveis no ESP32
+  showToast('⚡','Comando: ligar relé enviado');
+};
+window.desligarRele = () => {
+  set(ref(db, DB.rele), false);
+  set(ref(db, '/rele'), false);
+  showToast('○','Comando: desligar relé enviado');
+};
 
 // ════════════════════════════════════════════════
 //  UI HELPERS
@@ -1326,6 +1406,33 @@ window.runDiag = async function() {
   } catch(e) {
     out.textContent = '❌ Erro ao ler banco:\n' + e.message + '\n\nPossíveis causas:\n• Regras do banco bloqueando leitura\n• databaseURL incorreta na firebaseConfig';
   }
+};
+
+// ════════════════════════════════════════════════
+//  TEMPERATURA LIMITE — modo automático
+// ════════════════════════════════════════════════
+window.syncTempLimiteSlider = function(val) {
+  const s = document.getElementById('tempLimiteSlider');
+  if (s) s.value = val;
+};
+window.syncTempLimiteInput = function(val) {
+  const i = document.getElementById('tempLimiteInput');
+  if (i) i.value = val;
+};
+window.salvarTempLimite = function() {
+  if (!db) { showToast('❌','Firebase não conectado'); return; }
+  const v = parseFloat(document.getElementById('tempLimiteInput').value);
+  if (isNaN(v) || v < 0 || v > 60) {
+    showToast('❌','Valor inválido — use entre 0 e 60 °C');
+    return;
+  }
+  set(ref(db, DB.tempLimite), v)
+    .then(() => {
+      setVal('tempLimiteFB', `${v} °C`);
+      showToast('💾', `Temperatura limite salva: ${v} °C`);
+      diagLog(`Temperatura limite salva: ${v} °C → ${DB.tempLimite}`, 'ok');
+    })
+    .catch(e => showToast('❌', 'Erro ao salvar: ' + e.message));
 };
 
 // ════════════════════════════════════════════════
