@@ -1,13 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR" data-theme="prancha">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="./support.js"></script>
-</head>
-<body>
-<x-dc>
-<helmet>
+<title>Estação Climática · Monitor de Enchentes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Saira+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -41,8 +37,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 window.__fb = { initializeApp, getDatabase, ref, onValue, set, get };
 </script>
-</helmet>
-
+</head>
+<body>
 <div id="stationRoot" style="min-height:100vh;background:var(--bg);background-image:repeating-linear-gradient(0deg,transparent 0 79px,var(--grid) 79px 80px),repeating-linear-gradient(90deg,transparent 0 79px,var(--grid) 79px 80px);color:var(--ink);font-family:'IBM Plex Mono',monospace;transition:background .4s,color .4s;">
 
   <!-- ════════ HEADER ════════ -->
@@ -365,41 +361,43 @@ window.__fb = { initializeApp, getDatabase, ref, onValue, set, get };
   </div>
 
 </div>
-</x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1320,&quot;height&quot;:900},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;prancha&quot;,&quot;imersao&quot;],&quot;default&quot;:&quot;prancha&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Aparência&quot;},&quot;showGrid&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Aparência&quot;},&quot;stationLabel&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Estação Central&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Conteúdo&quot;}}">
-class Component extends DCLogic {
-  componentDidMount(){
-    const root = document.documentElement;
-    root.dataset.theme = (this.props && this.props.defaultTheme) || 'prancha';
-    this._applyGrid(!(this.props && this.props.showGrid === false));
-    this._applyLabel((this.props && this.props.stationLabel) || 'Estação Central');
-    this._syncThemeBtn();
-    this._boot();
-  }
-  componentDidUpdate(prev){
-    const p = this.props || {};
-    if(prev.defaultTheme !== p.defaultTheme && p.defaultTheme){ document.documentElement.dataset.theme = p.defaultTheme; this._syncThemeBtn(); if(window.__updateChartTheme) window.__updateChartTheme(); }
-    if(prev.showGrid !== p.showGrid) this._applyGrid(p.showGrid !== false);
-    if(prev.stationLabel !== p.stationLabel) this._applyLabel(p.stationLabel || 'Estação Central');
-  }
-  _applyGrid(on){ const r = document.getElementById('stationRoot'); if(!r) return; r.style.backgroundImage = on ? "repeating-linear-gradient(0deg,transparent 0 79px,var(--grid) 79px 80px),repeating-linear-gradient(90deg,transparent 0 79px,var(--grid) 79px 80px)" : "none"; }
-  _applyLabel(t){ const el = document.getElementById('brandName'); if(el) el.textContent = t; }
-  _syncThemeBtn(){ const b = document.getElementById('themeToggle'); if(b) b.textContent = document.documentElement.dataset.theme === 'imersao' ? 'Prancha' : 'Imersão'; }
 
-  _boot(){
-    if(this._wired) return;
-    const self = this;
-    const wait = () => {
-      if(window.__fb && window.L && window.Chart && document.getElementById('histChart')) self._run();
-      else setTimeout(wait, 60);
-    };
-    wait();
-  }
 
-  _run(){
-    if(this._wired) return; this._wired = true;
-    const self = this;
+<script>
+// ═══════════════════════════════════════════════════════
+//  Standalone bootstrap — substitui o DCLogic/support.js
+// ═══════════════════════════════════════════════════════
+function syncThemeBtn(){
+  const b=document.getElementById('themeToggle');
+  if(b) b.textContent = document.documentElement.dataset.theme==='imersao'?'Prancha':'Imersão';
+}
+function applyGrid(on){
+  const r=document.getElementById('stationRoot');
+  if(!r) return;
+  r.style.backgroundImage = on
+    ? "repeating-linear-gradient(0deg,transparent 0 79px,var(--grid) 79px 80px),repeating-linear-gradient(90deg,transparent 0 79px,var(--grid) 79px 80px)"
+    : "none";
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.documentElement.dataset.theme = 'prancha';
+  applyGrid(true);
+  syncThemeBtn();
+
+  // Aguarda Firebase (módulo), Leaflet e Chart.js carregarem
+  function boot(){
+    if(window.__fb && window.L && window.Chart && document.getElementById('histChart')){
+      run();
+    } else {
+      setTimeout(boot, 60);
+    }
+  }
+  boot();
+});
+
+function run(){
     const { initializeApp, getDatabase, ref, onValue, set, get } = window.__fb;
+    // ── Firebase config ──
 
     const firebaseConfig = {
       apiKey: "AIzaSyAC5BprHfoHEoe1AfLYv4h98eod01sf52U",
@@ -553,7 +551,7 @@ class Component extends DCLogic {
     }
 
     // ── THEME ──
-    window.toggleTheme = function(){ const r=document.documentElement; r.dataset.theme = r.dataset.theme==='imersao'?'prancha':'imersao'; self._syncThemeBtn(); if(window.__updateChartTheme) window.__updateChartTheme(); };
+    window.toggleTheme = function(){ const r=document.documentElement; r.dataset.theme = r.dataset.theme==='imersao'?'prancha':'imersao'; syncThemeBtn(); if(window.__updateChartTheme) window.__updateChartTheme(); };
 
     // ── TEMP LIMITE / AUTO ──
     let autoModeActive=false, tempLimiteLocal=30;
@@ -682,7 +680,8 @@ class Component extends DCLogic {
     window.shareState = function(){ const ire=lastRealValues.ire!==null?Math.round(lastRealValues.ire):'--', temp=lastRealValues.temp!==null?lastRealValues.temp.toFixed(1):'--', hum=lastRealValues.hum!==null?Math.round(lastRealValues.hum):'--', chuva=lastRealValues.chuva!==null?lastRealValues.chuva.toFixed(1):'--', risco=lastRiskNivel||'--'; const params=new URLSearchParams({ire,temp,hum,chuva,risco,ts:new Date().toLocaleTimeString('pt-BR')}); const url=location.origin+location.pathname+'?'+params; navigator.clipboard.writeText(url).then(()=>showToast('','Link copiado com estado atual!')).catch(()=>prompt('Copie o link:',url)); };
 
     // ── TOAST ──
-    function showToast(icon,msg,dur){ dur=dur||3500; const t=document.getElementById('toast'),tm=document.getElementById('toastMsg'); if(!t) return; if(tm) tm.textContent=msg; t.style.transform='translateY(0)'; t.style.opacity='1'; if(self._toastTimer) clearTimeout(self._toastTimer); self._toastTimer=setTimeout(()=>{ t.style.transform='translateY(80px)'; t.style.opacity='0'; }, dur); }
+    let _toastTimer;
+    function showToast(icon,msg,dur){ dur=dur||3500; const t=document.getElementById('toast'),tm=document.getElementById('toastMsg'); if(!t) return; if(tm) tm.textContent=msg; t.style.transform='translateY(0)'; t.style.opacity='1'; if(_toastTimer) clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>{ t.style.transform='translateY(80px)'; t.style.opacity='0'; }, dur); }
 
     // ── COORDENADAS ──
     function syncCoordInputs(){ const lat=document.getElementById('inputLat'),lng=document.getElementById('inputLng'),nome=document.getElementById('inputNome'),lbl=document.getElementById('coordCurrentVal'); if(lat) lat.value=SENSOR_LAT; if(lng) lng.value=SENSOR_LNG; if(nome) nome.value=SENSOR_NOME; if(lbl) lbl.textContent=SENSOR_LAT.toFixed(6)+', '+SENSOR_LNG.toFixed(6); }
@@ -710,8 +709,7 @@ class Component extends DCLogic {
     chartCaptureTimer=setInterval(captureChartSnapshot, chartCaptureMs);
     loadHistoryFromStorage(); renderEventLog(); setTimeout(syncCoordInputs, 400);
     window.setChartMode('ire'); window.setChartInterval(60000);
-  }
-}
+} // end run()
 </script>
 </body>
 </html>
